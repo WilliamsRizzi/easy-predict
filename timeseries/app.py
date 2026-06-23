@@ -1,9 +1,39 @@
 from flask import Flask, request, jsonify
 import numpy as np
 import os
+import time
+from collections import defaultdict, deque
 from functools import wraps
+from threading import Lock
 
 app = Flask(__name__)
+
+RATE_LIMIT_MAX_REQUESTS = int(os.environ.get("RATE_LIMIT_MAX_REQUESTS", "10"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "60"))
+rate_limit_records = defaultdict(deque)
+rate_limit_lock = Lock()
+
+
+def rate_limit(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        client_id = request.remote_addr or 'unknown'
+        now = time.time()
+        cutoff = now - RATE_LIMIT_WINDOW_SECONDS
+        with rate_limit_lock:
+            records = rate_limit_records[client_id]
+            while records and records[0] < cutoff:
+                records.popleft()
+            if len(records) >= RATE_LIMIT_MAX_REQUESTS:
+                return jsonify(error="Too many requests, rate limit exceeded"), 429
+            records.append(now)
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def reset_rate_limits():
+    with rate_limit_lock:
+        rate_limit_records.clear()
 
 
 def predict_next_log1p(series):
@@ -61,6 +91,7 @@ def log1p_info():
 
 @app.route('/log1p', methods=['POST'])
 @app.route('/timeseries/log1p', methods=['POST'])
+@rate_limit
 @require_x402
 def log1p_predict():
     if not request.is_json:
