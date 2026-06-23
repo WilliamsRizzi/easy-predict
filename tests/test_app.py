@@ -49,3 +49,9 @@ def test_log1p_wrong_cost_or_agent(client):
     headers = {'X-402': 'testtoken', 'X-402-Cost': '0.01', 'X-Agent-Type': 'bot'}
     resp = client.post('/timeseries/log1p', json=[1,2,3], headers=headers)
     assert resp.status_code == 403
+
+
+def test_log1p_endpoint_get(client):
+    resp = client.get('/timeseries/log1p')
+    assert resp.status_code == 200
+    assert b'Timeseries Log1p Predictor' in resp.data

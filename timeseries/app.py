@@ -41,6 +41,24 @@ def require_x402(f):
     return wrapper
 
 
+@app.route('/log1p', methods=['GET'])
+@app.route('/timeseries/log1p', methods=['GET'])
+def log1p_info():
+    return (
+        "<html><body>"
+        "<h1>Timeseries Log1p Predictor</h1>"
+        "<p>Send a POST request with JSON body:</p>"
+        "<pre>{\"series\": [1, 2, 3]}</pre>"
+        "<p>Headers required for POST:</p>"
+        "<ul>"
+        "<li>X-Agent-Type: ai</li>"
+        "<li>X-402-Cost: 0.001</li>"
+        "<li>X-402: &lt;token&gt; if X402_TOKEN is set</li>"
+        "</ul>"
+        "</body></html>"
+    )
+
+
 @app.route('/log1p', methods=['POST'])
 @app.route('/timeseries/log1p', methods=['POST'])
 @require_x402
