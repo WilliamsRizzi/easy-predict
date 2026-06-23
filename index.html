@@ -11,6 +11,8 @@
     A forecasting service on demand.
   </p>
 
+  <p><strong>Access note:</strong> This service requires a Coinbase X402 token for access to protected pages and endpoints. Request a Coinbase X402 token from your administrator before using the protected endpoints.</p>
+
   <h2>Upcoming Endpoint</h2>
 
   <code>/timeseries/log1p</code>
@@ -26,6 +28,35 @@
 {
   "series": [10,12,15]
 }
+  </pre>
+
+  <h2>Authentication (X-402 headers)</h2>
+
+  <p>
+    This service enforces access using request headers rather than an auth endpoint. Protected requests must include these headers:
+  </p>
+
+  <ul>
+    <li><code>X-Agent-Type</code>: must be <strong>ai</strong></li>
+    <li><code>X-402-Cost</code>: must be <strong>0.001</strong></li>
+    <li><code>X-402</code>: Coinbase X402 token (required if server sets <code>X402_TOKEN</code> environment variable)</li>
+  </ul>
+
+  <h3>Pages affected</h3>
+
+  <ul>
+    <li><code>/timeseries/log1p</code> and <code>/log1p</code> — POST (prediction) and GET (info) endpoints</li>
+  </ul>
+
+  <p>Example: POST a series with the required headers.</p>
+
+  <pre>
+curl -X POST https://easy-predict.com/timeseries/log1p \
+  -H "Content-Type: application/json" \
+  -H "X-Agent-Type: ai" \
+  -H "X-402-Cost: 0.001" \
+  -H "X-402: <X402_TOKEN>" \
+  -d '{"series":[10,12,15]}'
   </pre>
 
   <p>Status: Under Development</p>
