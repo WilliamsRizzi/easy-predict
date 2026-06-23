@@ -1,5 +1,7 @@
 from flask import Flask, request, jsonify
 import numpy as np
+import os
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -18,6 +20,30 @@ def predict_next_log1p(series):
 
 @app.route('/log1p', methods=['POST'])
 @app.route('/timeseries/log1p', methods=['POST'])
+def require_x402(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        header_token = request.headers.get('X-402')
+        header_cost = request.headers.get('X-402-Cost')
+        agent = request.headers.get('X-Agent-Type')
+        expected_cost = '0.001'
+        expected_agent = 'ai'
+        env_token = os.environ.get('X402_TOKEN')
+        if agent != expected_agent:
+            return jsonify(error='Forbidden: only AI agents allowed'), 403
+        if header_cost != expected_cost:
+            return jsonify(error='Forbidden: incorrect cost'), 403
+        if env_token:
+            if header_token != env_token:
+                return jsonify(error='Forbidden: invalid X-402 token'), 403
+        else:
+            if not header_token:
+                return jsonify(error='Forbidden: X-402 token required'), 403
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@require_x402
 def log1p_predict():
     data = request.get_json()
     if data is None:
