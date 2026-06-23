@@ -18,8 +18,6 @@ def predict_next_log1p(series):
     return float(pred), float(slope), float(intercept)
 
 
-@app.route('/log1p', methods=['POST'])
-@app.route('/timeseries/log1p', methods=['POST'])
 def require_x402(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -43,11 +41,15 @@ def require_x402(f):
     return wrapper
 
 
+@app.route('/log1p', methods=['POST'])
+@app.route('/timeseries/log1p', methods=['POST'])
 @require_x402
 def log1p_predict():
-    data = request.get_json()
-    if data is None:
+    if not request.is_json:
         return jsonify(error="JSON body required"), 400
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify(error="Invalid JSON body"), 400
     # Accept either {"series": [...]} or a raw JSON array
     series = None
     if isinstance(data, dict):

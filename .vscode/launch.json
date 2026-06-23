@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug timeseries app",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/timeseries/app.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "X402_TOKEN": "testtoken"
+      }
+    },
+    {
+      "name": "Run pytest tests",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["-q", "tests"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

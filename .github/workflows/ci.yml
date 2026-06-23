@@ -25,15 +25,3 @@ jobs:
 
       - name: Run tests
         run: pytest -q tests
-
-      - name: Deploy to Cloudflare
-        if: success() && startsWith(github.ref, 'refs/heads/')
-        env:
-          CF_DEPLOY_HOOK: ${{ secrets.CF_DEPLOY_HOOK }}
-        run: |
-          if [ -z "$CF_DEPLOY_HOOK" ]; then
-            echo "::error::CF_DEPLOY_HOOK secret is not set. Set it to your Cloudflare deploy webhook.";
-            exit 1;
-          fi
-          echo "Triggering Cloudflare deploy webhook..."
-          curl -sSf -X POST "$CF_DEPLOY_HOOK" -H "Content-Type: application/json" -d '{"ref":"'"${{ github.ref }}"'","sha":"'"${{ github.sha }}"'"}'

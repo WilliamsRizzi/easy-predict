@@ -1,5 +1,5 @@
 import pytest
-from timeseries import predict_next_log1p, app
+from timeseries.app import app, predict_next_log1p
 
 @pytest.fixture
 def client():

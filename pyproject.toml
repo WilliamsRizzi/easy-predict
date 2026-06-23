@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "easy-predict"
+version = "0.1.0"
+description = "A simple Flask API for log1p timeseries prediction."
+authors = [
+  {name = "WilliamsRizzi"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "Flask>=2.0",
+  "numpy>=1.21",
+  "pytest>=7.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/WilliamsRizzi/easy-predict"
