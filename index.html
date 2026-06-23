@@ -39,7 +39,7 @@
   <ul>
     <li><code>X-Agent-Type</code>: must be <strong>ai</strong></li>
     <li><code>X-402-Cost</code>: must be <strong>0.001</strong></li>
-    <li><code>X-402</code>: Coinbase X402 token (required if server sets <code>X402_TOKEN</code> environment variable)</li>
+    <li><code>X-402</code> or <code>X-402-Facilitator</code>: Coinbase X402 token required
   </ul>
 
   <h3>Pages affected</h3>
@@ -55,7 +55,7 @@ curl -X POST https://easy-predict.com/timeseries/log1p \
   -H "Content-Type: application/json" \
   -H "X-Agent-Type: ai" \
   -H "X-402-Cost: 0.001" \
-  -H "X-402: <X402_TOKEN>" \
+  -H "X-402-Facilitator: <X402_TOKEN>" \
   -d '{"series":[10,12,15]}'
   </pre>
 

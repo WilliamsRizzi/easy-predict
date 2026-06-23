@@ -30,4 +30,6 @@ Required headers for POST requests:
 
 - `X-Agent-Type: ai`
 - `X-402-Cost: 0.001`
-- `X-402: <token>` when `X402_TOKEN` is configured
+- `X-402: <token>` or `X-402-Facilitator: <token>` when `X402_TOKEN` is configured
+
+The service also exposes OpenAPI discovery metadata at `/openapi.json`.

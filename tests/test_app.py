@@ -33,6 +33,38 @@ def test_log1p_endpoint_object(client):
     resp = client.post('/timeseries/log1p', json={'series': [1, 1, 2]}, headers=headers)
     assert resp.status_code == 200
 
+def test_log1p_endpoint_facilitator_header(client):
+    headers = {'X-402-Facilitator': 'testtoken', 'X-402-Cost': '0.001', 'X-Agent-Type': 'ai'}
+    resp = client.post('/timeseries/log1p', json=[1, 2, 3], headers=headers)
+    assert resp.status_code == 200
+
+
+def test_log1p_endpoint_payment_required_missing_headers(client):
+    resp = client.post('/timeseries/log1p', json=[1, 2, 3])
+    assert resp.status_code == 403
+
+
+def test_log1p_endpoint_payment_required_wrong_cost(client):
+    headers = {'X-402': 'testtoken', 'X-402-Cost': '0.01', 'X-Agent-Type': 'ai'}
+    resp = client.post('/timeseries/log1p', json=[1, 2, 3], headers=headers)
+    assert resp.status_code == 402
+
+
+def test_log1p_endpoint_forbidden_wrong_agent(client):
+    headers = {'X-402': 'testtoken', 'X-402-Cost': '0.001', 'X-Agent-Type': 'bot'}
+    resp = client.post('/timeseries/log1p', json=[1,2,3], headers=headers)
+    assert resp.status_code == 403
+
+
+def test_openapi_discovery(client):
+    resp = client.get('/openapi.json')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['openapi'].startswith('3')
+    assert data['paths']['/timeseries/log1p']['post']['x-payment-info']['protocols'][0] == {'x402': {}}
+    assert 'x-guidance' in data['info']
+
+
 def test_log1p_endpoint_bad_length(client):
     headers = {'X-402': 'testtoken', 'X-402-Cost': '0.001', 'X-Agent-Type': 'ai'}
     resp = client.post('/timeseries/log1p', json=[1, 2], headers=headers)
@@ -46,6 +78,7 @@ def test_log1p_endpoint_no_json(client):
 def test_log1p_missing_headers(client):
     resp = client.post('/timeseries/log1p', json=[1,2,3])
     assert resp.status_code == 403
+
 
 def test_log1p_wrong_cost_or_agent(client):
     headers = {'X-402': 'testtoken', 'X-402-Cost': '0.01', 'X-Agent-Type': 'bot'}
