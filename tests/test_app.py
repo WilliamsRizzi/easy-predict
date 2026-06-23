@@ -40,8 +40,10 @@ def test_log1p_endpoint_facilitator_header(client):
 
 
 def test_log1p_endpoint_payment_required_missing_headers(client):
+    # No payment of any kind -> 402 payment challenge (not 403). The payment
+    # gate must precede the identity gate so discovery crawlers get a 402.
     resp = client.post('/timeseries/log1p', json=[1, 2, 3])
-    assert resp.status_code == 403
+    assert resp.status_code == 402
 
 
 def test_log1p_endpoint_payment_required_wrong_cost(client):
@@ -77,7 +79,7 @@ def test_log1p_endpoint_no_json(client):
 
 def test_log1p_missing_headers(client):
     resp = client.post('/timeseries/log1p', json=[1,2,3])
-    assert resp.status_code == 403
+    assert resp.status_code == 402
 
 
 def test_log1p_wrong_cost_or_agent(client):
@@ -134,6 +136,25 @@ def test_402_returns_x402_payment_requirements(client):
     # x402 v2 header echo present
     assert resp.headers.get('X-Payment-Required')
     assert resp.headers.get('PAYMENT-REQUIRED')
+
+
+@pytest.mark.parametrize('path', ['/log1p', '/timeseries/log1p'])
+def test_unpaid_probe_returns_402_challenge(client, path):
+    # Exactly what an x402 discovery crawler (x402scan) does: a bare POST with
+    # no identity, cost, or payment headers and no body. It must get a 402
+    # payment challenge -- never a 403 or a body-validation error -- so the
+    # endpoint is registered as a paid x402 resource.
+    import os
+    original = os.environ.pop('X402_TOKEN', None)
+    try:
+        resp = client.post(path)
+    finally:
+        if original is not None:
+            os.environ['X402_TOKEN'] = original
+    assert resp.status_code == 402
+    body = resp.get_json()
+    assert body['accepts'][0]['scheme'] == 'exact'
+    assert resp.headers.get('X-Payment-Required')
 
 
 def test_x402_payment_header_satisfies_paywall(client):

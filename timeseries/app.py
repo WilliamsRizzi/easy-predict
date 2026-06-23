@@ -38,8 +38,23 @@ X402_MAX_TIMEOUT_SECONDS = int(os.environ.get('X402_MAX_TIMEOUT_SECONDS', '60'))
 # this is typically the Coinbase CDP facilitator.
 X402_FACILITATOR_URL = os.environ.get('X402_FACILITATOR_URL', 'https://x402.org/facilitator')
 
+# Public base URL advertised in the discovery documents. When the spec is
+# served behind a proxy or as a static file, set this so the probe/resource
+# URLs that crawlers (e.g. x402scan) follow are correct. Falls back to the
+# incoming request host.
+PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL')
+
 # Paths that sit behind the paywall (POST only).
 PAID_PATHS = ('/log1p', '/timeseries/log1p')
+
+
+def resolve_base_url(base_url=None):
+    """Resolve the absolute base URL used in discovery documents."""
+    if base_url is not None:
+        return base_url.rstrip('/')
+    if PUBLIC_BASE_URL:
+        return PUBLIC_BASE_URL.rstrip('/')
+    return request.host_url.rstrip('/')
 
 
 def x402_payment_requirements(resource_url):
@@ -87,37 +102,49 @@ def x402_payment_required_response(error_message, resource_url=None):
     return resp
 
 
+def has_valid_payment():
+    """True when the request carries a payment that satisfies the paywall.
+
+    Accepts either a real x402 settlement payload (``X-PAYMENT``) or the
+    configured shared token (``X-402`` / ``X-402-Facilitator``). When no shared
+    token is configured, any non-empty token is accepted.
+    """
+    # A real x402 client settles by sending the signed payment payload here.
+    if request.headers.get('X-PAYMENT') or request.headers.get('X-Payment'):
+        return True
+    header_token = request.headers.get('X-402')
+    header_facilitator = request.headers.get('X-402-Facilitator')
+    env_token = os.environ.get('X402_TOKEN')
+    if env_token:
+        return header_token == env_token or header_facilitator == env_token
+    return bool(header_token or header_facilitator)
+
+
 def x402_block_reason():
     """Decide whether the current request may pass the paywall.
 
     Returns ``None`` when the request is allowed, otherwise a ``(kind, message)``
     tuple where ``kind`` is ``'forbidden'`` (403, wrong caller identity) or
     ``'payment'`` (402, payment missing/invalid).
-    """
-    agent = request.headers.get('X-Agent-Type')
-    header_cost = request.headers.get('X-402-Cost')
-    header_token = request.headers.get('X-402')
-    header_facilitator = request.headers.get('X-402-Facilitator')
-    # A real x402 client settles by sending the signed payment payload here.
-    header_payment = request.headers.get('X-PAYMENT') or request.headers.get('X-Payment')
-    env_token = os.environ.get('X402_TOKEN')
 
-    # Identity gate: this service is for AI agents only.
-    if agent != 'ai':
+    The payment gate is evaluated FIRST so that any unpaid request receives a
+    402 payment challenge (with the x402 ``accepts`` terms) before identity or
+    body validation. This is what x402 discovery crawlers such as x402scan rely
+    on when they probe a paid endpoint with no payment attached — checking
+    identity first would hand them a 403 and the endpoint would be skipped.
+    """
+    # 1. Payment gate first -> unpaid probes always get a 402 challenge.
+    if not has_valid_payment():
+        return ('payment',
+                'Payment Required: x402 micropayment required '
+                '(send X-PAYMENT, or an X-402 / X-402-Facilitator token)')
+    # 2. Caller has paid; this service is for AI agents only.
+    if request.headers.get('X-Agent-Type') != 'ai':
         return ('forbidden', 'Forbidden: only AI agents allowed')
-    # Price gate.
-    if header_cost != X402_PRICE_USD:
-        return ('payment', 'Payment Required: missing or incorrect X-402-Cost; expected %s' % X402_PRICE_USD)
-    # Presence of a real x402 payment payload satisfies the paywall.
-    if header_payment:
-        return None
-    # Otherwise fall back to the configured shared payment token.
-    if env_token:
-        if header_token != env_token and header_facilitator != env_token:
-            return ('payment', 'Payment Required: missing or invalid x402 payment')
-    else:
-        if not header_token and not header_facilitator:
-            return ('payment', 'Payment Required: X-402 token, facilitator, or X-PAYMENT required')
+    # 3. Price gate.
+    if request.headers.get('X-402-Cost') != X402_PRICE_USD:
+        return ('payment',
+                'Payment Required: missing or incorrect X-402-Cost; expected %s' % X402_PRICE_USD)
     return None
 
 
@@ -193,8 +220,7 @@ def require_x402(f):
 
 
 def get_openapi_spec(base_url=None):
-    if base_url is None:
-        base_url = request.host_url.rstrip('/')
+    base_url = resolve_base_url(base_url)
     contact_email = os.environ.get('CONTACT_EMAIL', 'support@easy-predict.com')
     return {
         'openapi': '3.1.0',
@@ -361,8 +387,7 @@ def get_log1p_operation(resource_url):
 
 def get_x402_discovery(base_url=None):
     """Machine-readable x402 resource list for /.well-known/x402."""
-    if base_url is None:
-        base_url = request.host_url.rstrip('/')
+    base_url = resolve_base_url(base_url)
     resources = []
     for path in PAID_PATHS:
         resource_url = base_url + path
