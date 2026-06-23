@@ -108,3 +108,61 @@ def test_log1p_endpoint_get(client):
     resp = client.get('/timeseries/log1p')
     assert resp.status_code == 200
     assert b'Timeseries Log1p Predictor' in resp.data
+
+
+def test_402_returns_x402_payment_requirements(client):
+    # Correct identity and cost but no payment -> 402 with x402 metadata
+    headers = {'X-402-Cost': '0.001', 'X-Agent-Type': 'ai'}
+    # Ensure the shared-token path is exercised by clearing the env token
+    import os
+    original = os.environ.pop('X402_TOKEN', None)
+    try:
+        resp = client.post('/timeseries/log1p', json=[1, 2, 3], headers=headers)
+    finally:
+        if original is not None:
+            os.environ['X402_TOKEN'] = original
+    assert resp.status_code == 402
+    body = resp.get_json()
+    assert body['x402Version'] == 1
+    assert isinstance(body['accepts'], list) and body['accepts']
+    req = body['accepts'][0]
+    assert req['scheme'] == 'exact'
+    assert req['network'] == 'base'
+    assert req['payTo'].startswith('0x')
+    assert req['maxAmountRequired'] == '1000'
+    assert req['asset'].startswith('0x')
+    # x402 v2 header echo present
+    assert resp.headers.get('X-Payment-Required')
+    assert resp.headers.get('PAYMENT-REQUIRED')
+
+
+def test_x402_payment_header_satisfies_paywall(client):
+    headers = {'X-PAYMENT': 'deadbeef', 'X-402-Cost': '0.001', 'X-Agent-Type': 'ai'}
+    resp = client.post('/timeseries/log1p', json=[1, 2, 3], headers=headers)
+    assert resp.status_code == 200
+
+
+def test_openapi_paid_and_free_security(client):
+    resp = client.get('/openapi.json')
+    data = resp.get_json()
+    # Paid POST declares the x402 security scheme
+    assert data['paths']['/timeseries/log1p']['post']['security'] == [{'x402': []}]
+    # Free GET declares empty security
+    assert data['paths']['/timeseries/log1p']['get']['security'] == []
+    assert data['paths']['/openapi.json']['get']['security'] == []
+    # Security scheme is defined
+    assert data['components']['securitySchemes']['x402']['in'] == 'header'
+    # Enriched x402 payment requirements present on the paid operation
+    accepts = data['paths']['/timeseries/log1p']['post']['x-payment-info']['x402']['accepts']
+    assert accepts[0]['payTo'].startswith('0x')
+
+
+def test_well_known_x402_discovery(client):
+    resp = client.get('/.well-known/x402')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['x402Version'] == 1
+    assert data['openapi'].endswith('/openapi.json')
+    paths = {r['resource'].rsplit('/', 1)[-1] or r['resource'] for r in data['resources']}
+    assert any(r['method'] == 'POST' for r in data['resources'])
+    assert data['resources'][0]['accepts'][0]['scheme'] == 'exact'
