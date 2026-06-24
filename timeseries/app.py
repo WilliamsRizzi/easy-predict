@@ -11,14 +11,14 @@ app = Flask(__name__)
 # ---------------------------------------------------------------------------
 PAY_TO_ADDRESS = os.environ.get('PAY_TO_ADDRESS', '0xc99b83818c8865340AC55C45554f377f41c68DBC')
 X402_ASSET     = os.environ.get('X402_ASSET',     '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
-X402_NETWORK   = os.environ.get('X402_NETWORK',   'base')
+X402_NETWORK   = os.environ.get('X402_NETWORK',   'eip155:8453')
 # 0.001 USDC in atomic units (USDC has 6 decimals → 0.001 * 10^6 = 1000)
 X402_MAX_AMOUNT = os.environ.get('X402_MAX_AMOUNT', '1000')
 FACILITATOR_URL = os.environ.get('FACILITATOR_URL', 'https://x402.org/facilitator')
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://easy-predict.com').rstrip('/')
 
-# Absolute path to the repo root so we can serve index.html / openapi.json.
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Absolute path to the public/ directory for static files.
+ROOT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'public')
 
 
 # ---------------------------------------------------------------------------

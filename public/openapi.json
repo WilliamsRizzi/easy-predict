@@ -10,7 +10,7 @@
   "servers": [{ "url": "https://easy-predict.com" }],
   "x-x402": {
     "version": 2,
-    "network": "base",
+    "network": "eip155:8453",
     "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
     "facilitator": "https://x402.org/facilitator"
@@ -124,7 +124,7 @@
             },
             "accepts": [{
               "scheme": "exact",
-              "network": "base",
+              "network": "eip155:8453",
               "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
               "amount": "1000",
               "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
@@ -187,7 +187,7 @@
                     "method": "POST",
                     "accepts": [{
                       "scheme": "exact",
-                      "network": "base",
+                      "network": "eip155:8453",
                       "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
                       "amount": "1000",
                       "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
@@ -227,7 +227,7 @@
         "required": ["scheme", "network", "asset", "amount", "payTo", "maxTimeoutSeconds"],
         "properties": {
           "scheme":            { "type": "string", "example": "exact" },
-          "network":           { "type": "string", "example": "base" },
+          "network":           { "type": "string", "example": "eip155:8453" },
           "asset":             { "type": "string", "description": "ERC-20 contract address." },
           "amount":            { "type": "string", "example": "1000", "description": "Payment amount in atomic units (USDC has 6 decimals, so 1000 = $0.001)." },
           "payTo":             { "type": "string", "description": "EVM wallet address that receives payment." },

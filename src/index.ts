@@ -1,0 +1,169 @@
+const PAY_TO_ADDRESS = '0xc99b83818c8865340AC55C45554f377f41c68DBC';
+const X402_ASSET    = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const X402_AMOUNT   = '1000';
+
+export interface Env {
+  ASSETS: Fetcher;
+}
+
+function paymentRequirements() {
+  return {
+    scheme: 'exact',
+    network: 'eip155:8453',
+    asset: X402_ASSET,
+    amount: X402_AMOUNT,
+    payTo: PAY_TO_ADDRESS,
+    maxTimeoutSeconds: 60,
+    extra: { name: 'USD Coin', version: '2' },
+  };
+}
+
+function paymentRequired(resourceUrl: string): Response {
+  const body = {
+    x402Version: 2,
+    error: 'Payment Required',
+    resource: {
+      url: resourceUrl,
+      description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
+      mimeType: 'application/json',
+    },
+    accepts: [paymentRequirements()],
+  };
+  const encoded = btoa(JSON.stringify(body));
+  return new Response(JSON.stringify(body), {
+    status: 402,
+    headers: {
+      'Content-Type': 'application/json',
+      'PAYMENT-REQUIRED': encoded,
+      'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED',
+    },
+  });
+}
+
+function hasPayment(request: Request): boolean {
+  return !!(
+    request.headers.get('PAYMENT-SIGNATURE') ||
+    request.headers.get('Payment-Signature') ||
+    request.headers.get('X-PAYMENT') ||
+    request.headers.get('X-Payment')
+  );
+}
+
+function predictLog1p(series: number[]): { prediction: number; slope: number; intercept: number } {
+  const n = series.length;
+  if (n < 3 || n > 10) throw new Error('Series length must be between 3 and 10');
+
+  const y = series.map(v => Math.log1p(v));
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  for (let i = 0; i < n; i++) {
+    sumX  += i;
+    sumY  += y[i];
+    sumXY += i * y[i];
+    sumX2 += i * i;
+  }
+  const slope     = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const intercept = (sumY - slope * sumX) / n;
+  return { prediction: Math.expm1(slope * n + intercept), slope, intercept };
+}
+
+async function handleTimeseriesPost(request: Request, baseUrl: string): Promise<Response> {
+  const resourceUrl = `${baseUrl}/timeseries`;
+
+  if (!hasPayment(request)) return paymentRequired(resourceUrl);
+
+  const ct = request.headers.get('Content-Type') ?? '';
+  if (!ct.includes('application/json')) {
+    return new Response(JSON.stringify({ error: 'JSON body required' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let data: unknown;
+  try {
+    data = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let series: unknown;
+  if (Array.isArray(data)) {
+    series = data;
+  } else if (data && typeof data === 'object' && 'series' in data) {
+    series = (data as Record<string, unknown>).series;
+  }
+
+  if (!Array.isArray(series)) {
+    return new Response(
+      JSON.stringify({ error: "Provide a 'series' key with a number array, or send a bare JSON array" }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  try {
+    const { prediction, slope, intercept } = predictLog1p(series as number[]);
+    return new Response(
+      JSON.stringify({ prediction, method: 'log1p-linear-extrapolation', slope, intercept }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } },
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+}
+
+function handleWellKnownX402(baseUrl: string): Response {
+  const resourceUrl = `${baseUrl}/timeseries`;
+  return new Response(JSON.stringify({
+    x402Version: 2,
+    openapi: `${baseUrl}/openapi.json`,
+    resources: [{
+      resource: {
+        url: resourceUrl,
+        description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
+        mimeType: 'application/json',
+      },
+      method: 'POST',
+      accepts: [paymentRequirements()],
+    }],
+  }), { headers: { 'Content-Type': 'application/json' } });
+}
+
+function handleFavicon(): Response {
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+    + '<rect width="32" height="32" rx="6" fill="#7c6af7"/>'
+    + '<text x="16" y="23" font-size="20" text-anchor="middle" '
+    + 'fill="white" font-family="monospace" font-weight="bold">e</text></svg>';
+  return new Response(svg, {
+    headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+    const { pathname } = url;
+    const baseUrl = url.origin;
+
+    if (pathname === '/timeseries' && request.method === 'POST') {
+      return handleTimeseriesPost(request, baseUrl);
+    }
+
+    if (pathname === '/.well-known/x402') {
+      return handleWellKnownX402(baseUrl);
+    }
+
+    if (pathname === '/favicon.ico') {
+      return handleFavicon();
+    }
+
+    if (pathname === '/timeseries' && request.method === 'GET') {
+      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url).toString(), request));
+    }
+
+    return env.ASSETS.fetch(request);
+  },
+};
