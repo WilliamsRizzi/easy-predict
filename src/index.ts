@@ -1,9 +1,11 @@
-const PAY_TO_ADDRESS = '0xc99b83818c8865340AC55C45554f377f41c68DBC';
-const X402_ASSET    = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const X402_AMOUNT   = '1000';
+const PAY_TO_ADDRESS  = '0xc99b83818c8865340AC55C45554f377f41c68DBC';
+const X402_ASSET      = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+const X402_AMOUNT     = '1000';
+const FACILITATOR_URL = 'https://x402.org/facilitator';
 
 export interface Env {
   ASSETS: Fetcher;
+  RATE_LIMITER: RateLimit;
 }
 
 function paymentRequirements() {
@@ -18,10 +20,10 @@ function paymentRequirements() {
   };
 }
 
-function paymentRequired(resourceUrl: string): Response {
+function paymentRequired(resourceUrl: string, error = 'Payment Required'): Response {
   const body = {
     x402Version: 2,
-    error: 'Payment Required',
+    error,
     resource: {
       url: resourceUrl,
       description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
@@ -29,24 +31,59 @@ function paymentRequired(resourceUrl: string): Response {
     },
     accepts: [paymentRequirements()],
   };
-  const encoded = btoa(JSON.stringify(body));
   return new Response(JSON.stringify(body), {
     status: 402,
     headers: {
       'Content-Type': 'application/json',
-      'PAYMENT-REQUIRED': encoded,
+      'PAYMENT-REQUIRED': btoa(JSON.stringify(body)),
       'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED',
     },
   });
 }
 
-function hasPayment(request: Request): boolean {
-  return !!(
+function getPaymentHeader(request: Request): string | null {
+  return (
     request.headers.get('PAYMENT-SIGNATURE') ||
     request.headers.get('Payment-Signature') ||
     request.headers.get('X-PAYMENT') ||
     request.headers.get('X-Payment')
   );
+}
+
+async function verifyPayment(header: string): Promise<{ isValid: boolean; invalidReason: string | null }> {
+  let paymentPayload: unknown;
+  try {
+    paymentPayload = JSON.parse(atob(header));
+  } catch {
+    return { isValid: false, invalidReason: 'Invalid payment header encoding' };
+  }
+
+  try {
+    const resp = await fetch(`${FACILITATOR_URL}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ x402Version: 2, paymentPayload, paymentRequirements: paymentRequirements() }),
+    });
+    if (!resp.ok) return { isValid: false, invalidReason: `Facilitator error ${resp.status}` };
+    const data = await resp.json() as { isValid: boolean; invalidReason?: string };
+    return { isValid: data.isValid === true, invalidReason: data.invalidReason ?? null };
+  } catch {
+    return { isValid: false, invalidReason: 'Facilitator unreachable' };
+  }
+}
+
+function settlePayment(header: string): Promise<void> {
+  let paymentPayload: unknown;
+  try {
+    paymentPayload = JSON.parse(atob(header));
+  } catch {
+    return Promise.resolve();
+  }
+  return fetch(`${FACILITATOR_URL}/settle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ x402Version: 2, paymentPayload, paymentRequirements: paymentRequirements() }),
+  }).then(() => {}).catch(() => {});
 }
 
 function predictLog1p(series: number[]): { prediction: number; slope: number; intercept: number } {
@@ -66,10 +103,18 @@ function predictLog1p(series: number[]): { prediction: number; slope: number; in
   return { prediction: Math.expm1(slope * n + intercept), slope, intercept };
 }
 
-async function handleTimeseriesPost(request: Request, baseUrl: string): Promise<Response> {
+async function handleTimeseriesPost(
+  request: Request,
+  baseUrl: string,
+  ctx: ExecutionContext,
+): Promise<Response> {
   const resourceUrl = `${baseUrl}/timeseries`;
 
-  if (!hasPayment(request)) return paymentRequired(resourceUrl);
+  const paymentHeader = getPaymentHeader(request);
+  if (!paymentHeader) return paymentRequired(resourceUrl);
+
+  const { isValid, invalidReason } = await verifyPayment(paymentHeader);
+  if (!isValid) return paymentRequired(resourceUrl, invalidReason ?? 'Invalid payment');
 
   const ct = request.headers.get('Content-Type') ?? '';
   if (!ct.includes('application/json')) {
@@ -101,8 +146,16 @@ async function handleTimeseriesPost(request: Request, baseUrl: string): Promise<
     );
   }
 
+  if (!series.every(v => typeof v === 'number' && isFinite(v))) {
+    return new Response(
+      JSON.stringify({ error: 'All series values must be finite numbers' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
   try {
     const { prediction, slope, intercept } = predictLog1p(series as number[]);
+    ctx.waitUntil(settlePayment(paymentHeader));
     return new Response(
       JSON.stringify({ prediction, method: 'log1p-linear-extrapolation', slope, intercept }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -143,22 +196,25 @@ function handleFavicon(): Response {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
     const baseUrl = url.origin;
 
     if (pathname === '/timeseries' && request.method === 'POST') {
-      return handleTimeseriesPost(request, baseUrl);
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+      const { success } = await env.RATE_LIMITER.limit({ key: ip });
+      if (!success) {
+        return new Response(JSON.stringify({ error: 'Too many requests' }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+        });
+      }
+      return handleTimeseriesPost(request, baseUrl, ctx);
     }
 
-    if (pathname === '/.well-known/x402') {
-      return handleWellKnownX402(baseUrl);
-    }
-
-    if (pathname === '/favicon.ico') {
-      return handleFavicon();
-    }
+    if (pathname === '/.well-known/x402') return handleWellKnownX402(baseUrl);
+    if (pathname === '/favicon.ico') return handleFavicon();
 
     if (pathname === '/timeseries' && request.method === 'GET') {
       return env.ASSETS.fetch(new Request(new URL('/index.html', request.url).toString(), request));
