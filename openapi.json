@@ -1,0 +1,492 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "easy-predict Time Series Prediction API",
+    "version": "1.0.0",
+    "description": "Predict the next value in a numeric series using log1p linear extrapolation.",
+    "contact": {
+      "email": "support@easy-predict.com"
+    },
+    "x-guidance": "Use POST /log1p or /timeseries/log1p with X-Agent-Type, X-402-Cost, and an x402 payment (X-PAYMENT header) or X-402 / X-402-Facilitator token to request a prediction. Calling without payment returns HTTP 402 with payment requirements in the response body `accepts` array."
+  },
+  "servers": [
+    {
+      "url": "https://easy-predict.com"
+    }
+  ],
+  "x-x402": {
+    "version": 1,
+    "network": "base",
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
+    "facilitator": "https://x402.org/facilitator"
+  },
+  "paths": {
+    "/log1p": {
+      "get": {
+        "summary": "API information",
+        "description": "Free, human-readable usage information for the log1p endpoint.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Information about the log1p endpoint"
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "x402": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Agent-Type",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "must be ai"
+          },
+          {
+            "name": "X-402-Cost",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "must be 0.001"
+          },
+          {
+            "name": "X-PAYMENT",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 signed payment payload (base64)"
+          },
+          {
+            "name": "X-402",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Coinbase X402 token"
+          },
+          {
+            "name": "X-402-Facilitator",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Facilitator token header alternative to X-402"
+          }
+        ],
+        "summary": "Predict the next value for a numeric series",
+        "description": "Accepts a JSON array or an object containing a series array and returns the next predicted value. Paid via x402 micropayment.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 10
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "series": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        },
+                        "minItems": 3,
+                        "maxItems": 10
+                      }
+                    },
+                    "required": [
+                      "series"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Prediction result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prediction": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "type": "string"
+                    },
+                    "slope": {
+                      "type": "number"
+                    },
+                    "intercept": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "prediction",
+                    "method",
+                    "slope",
+                    "intercept"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Payment Required. Body contains x402 payment requirements.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "x402Version": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "accepts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "facilitator": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "x402Version",
+                    "accepts"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "x-payment-info": {
+          "price": {
+            "fixed": {
+              "mode": "fixed",
+              "currency": "USD",
+              "amount": "0.001"
+            },
+            "dynamic": {
+              "mode": "dynamic",
+              "currency": "USD",
+              "min": "0.001",
+              "max": "0.001"
+            }
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ],
+          "x402": {
+            "version": 1,
+            "accepts": [
+              {
+                "scheme": "exact",
+                "network": "base",
+                "maxAmountRequired": "1000",
+                "resource": "https://easy-predict.com/log1p",
+                "description": "Predict the next value in a numeric series via log1p linear extrapolation.",
+                "mimeType": "application/json",
+                "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
+                "maxTimeoutSeconds": 60,
+                "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                "extra": {
+                  "name": "USD Coin",
+                  "version": "2"
+                }
+              }
+            ],
+            "facilitator": "https://x402.org/facilitator"
+          }
+        }
+      }
+    },
+    "/timeseries/log1p": {
+      "get": {
+        "summary": "API information",
+        "description": "Free, human-readable usage information for the log1p endpoint.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Information about the log1p endpoint"
+          }
+        }
+      },
+      "post": {
+        "security": [
+          {
+            "x402": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Agent-Type",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "must be ai"
+          },
+          {
+            "name": "X-402-Cost",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "must be 0.001"
+          },
+          {
+            "name": "X-PAYMENT",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "x402 signed payment payload (base64)"
+          },
+          {
+            "name": "X-402",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Coinbase X402 token"
+          },
+          {
+            "name": "X-402-Facilitator",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Facilitator token header alternative to X-402"
+          }
+        ],
+        "summary": "Predict the next value for a numeric series",
+        "description": "Accepts a JSON array or an object containing a series array and returns the next predicted value. Paid via x402 micropayment.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "number"
+                    },
+                    "minItems": 3,
+                    "maxItems": 10
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "series": {
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        },
+                        "minItems": 3,
+                        "maxItems": 10
+                      }
+                    },
+                    "required": [
+                      "series"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Prediction result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prediction": {
+                      "type": "number"
+                    },
+                    "method": {
+                      "type": "string"
+                    },
+                    "slope": {
+                      "type": "number"
+                    },
+                    "intercept": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "prediction",
+                    "method",
+                    "slope",
+                    "intercept"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "402": {
+            "description": "Payment Required. Body contains x402 payment requirements.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "x402Version": {
+                      "type": "integer"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "accepts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "facilitator": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "x402Version",
+                    "accepts"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "429": {
+            "description": "Too Many Requests"
+          }
+        },
+        "x-payment-info": {
+          "price": {
+            "fixed": {
+              "mode": "fixed",
+              "currency": "USD",
+              "amount": "0.001"
+            },
+            "dynamic": {
+              "mode": "dynamic",
+              "currency": "USD",
+              "min": "0.001",
+              "max": "0.001"
+            }
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ],
+          "x402": {
+            "version": 1,
+            "accepts": [
+              {
+                "scheme": "exact",
+                "network": "base",
+                "maxAmountRequired": "1000",
+                "resource": "https://easy-predict.com/timeseries/log1p",
+                "description": "Predict the next value in a numeric series via log1p linear extrapolation.",
+                "mimeType": "application/json",
+                "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
+                "maxTimeoutSeconds": 60,
+                "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                "extra": {
+                  "name": "USD Coin",
+                  "version": "2"
+                }
+              }
+            ],
+            "facilitator": "https://x402.org/facilitator"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "OpenAPI discovery document",
+        "description": "This OpenAPI document. Free to fetch.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document describing this API"
+          }
+        }
+      }
+    },
+    "/.well-known/x402": {
+      "get": {
+        "summary": "x402 discovery document",
+        "description": "Machine-readable list of paid x402 resources and a pointer to the OpenAPI document. Free to fetch.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "x402 resource discovery payload"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "x402": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-PAYMENT",
+        "description": "x402 micropayment. Send a base64-encoded signed payment payload in the X-PAYMENT header. Without it the endpoint returns HTTP 402 with the required payment terms in the response body `accepts` array."
+      }
+    }
+  }
+}
