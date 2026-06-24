@@ -1,16 +1,12 @@
-image: python:3.12
-
 stages:
   - test
 
-variables:
-  PIP_DISABLE_PIP_VERSION_CHECK: "1"
-
-before_script:
-  - python -m pip install --upgrade pip
-  - python -m pip install -e .
-
 test:
   stage: test
+  image: python:3.11
+  variables:
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  before_script:
+    - pip install -r requirements.txt
   script:
     - pytest -q tests
