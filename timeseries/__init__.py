@@ -1,1 +1,1 @@
-from .app import app, predict_next_log1p
+from .app import app

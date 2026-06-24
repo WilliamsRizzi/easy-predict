@@ -19,3 +19,7 @@ dependencies = [
 
 [project.urls]
 "Homepage" = "https://github.com/WilliamsRizzi/easy-predict"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

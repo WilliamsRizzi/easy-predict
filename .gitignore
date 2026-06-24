@@ -3,6 +3,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
+# Node
+node_modules/
+package-lock.json
+
 # wrangler files
 .wrangler
 .dev.vars*
