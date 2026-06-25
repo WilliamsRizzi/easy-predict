@@ -206,9 +206,17 @@ function handleWellKnownX402(baseUrl: string): Response {
 
 function handleFavicon(): Response {
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
-    + '<rect width="32" height="32" rx="6" fill="#7c6af7"/>'
-    + '<text x="16" y="23" font-size="20" text-anchor="middle" '
-    + 'fill="white" font-family="monospace" font-weight="bold">e</text></svg>';
+    + '<rect width="32" height="32" rx="7" fill="#0a1628"/>'
+    + '<polyline points="5,24 9,18 14,14 19,12" fill="none" stroke="white" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<polyline points="19,12 25,8 27,15 21,19 19,12" fill="none" stroke="white" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="5"  cy="24" r="1.2" fill="white"/>'
+    + '<circle cx="9"  cy="18" r="1.2" fill="white"/>'
+    + '<circle cx="14" cy="14" r="1.2" fill="white"/>'
+    + '<circle cx="19" cy="12" r="1.2" fill="white"/>'
+    + '<circle cx="25" cy="8"  r="1.2" fill="white"/>'
+    + '<circle cx="27" cy="15" r="1.2" fill="white"/>'
+    + '<circle cx="21" cy="19" r="1.2" fill="white"/>'
+    + '</svg>';
   return new Response(svg, {
     headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' },
   });
@@ -233,12 +241,16 @@ export default {
     }
 
     if (pathname === '/.well-known/x402') return handleWellKnownX402(baseUrl);
-    if (pathname === '/favicon.ico') return handleFavicon();
+    if (pathname === '/favicon.ico' || pathname === '/favicon.svg') return handleFavicon();
 
     if (pathname === '/timeseries' && request.method === 'GET') {
       return env.ASSETS.fetch(new Request(new URL('/index.html', request.url).toString(), request));
     }
 
-    return env.ASSETS.fetch(request);
+    try {
+      return await env.ASSETS.fetch(request);
+    } catch {
+      return new Response('Not Found', { status: 404 });
+    }
   },
 };
