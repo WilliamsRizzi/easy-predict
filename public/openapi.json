@@ -61,6 +61,12 @@
                         "minItems": 3,
                         "maxItems": 10,
                         "example": [1.0, 2.3, 4.1, 6.8, 9.2]
+                      },
+                      "context": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "Optional description of what this series represents (e.g. 'monthly revenue', 'daily active users'). Providing context helps easy-predict choose the best model for your data and is echoed back in the response.",
+                        "example": "monthly revenue in USD"
                       }
                     }
                   }
@@ -81,14 +87,16 @@
                     "prediction": { "type": "number", "description": "Predicted next value (expm1 of the extrapolated log1p point)." },
                     "method":     { "type": "string", "enum": ["log1p-linear-extrapolation"] },
                     "slope":      { "type": "number", "description": "Regression slope in log1p space." },
-                    "intercept":  { "type": "number", "description": "Regression intercept in log1p space." }
+                    "intercept":  { "type": "number", "description": "Regression intercept in log1p space." },
+                    "context":    { "type": "string", "description": "Echoed back from the request if provided." }
                   }
                 },
                 "example": {
                   "prediction": 12.47,
                   "method": "log1p-linear-extrapolation",
                   "slope": 0.218,
-                  "intercept": 0.093
+                  "intercept": 0.093,
+                  "context": "monthly revenue in USD"
                 }
               }
             }
@@ -111,8 +119,8 @@
         },
         "x-payment-info": {
           "price": {
-            "fixed":   { "mode": "fixed",   "currency": "USD", "amount": "0.001" },
-            "dynamic": { "mode": "dynamic", "currency": "USD", "min": "0.001", "max": "0.001" }
+            "fixed":   { "mode": "fixed",   "currency": "USD", "amount": "0.01" },
+            "dynamic": { "mode": "dynamic", "currency": "USD", "min": "0.01", "max": "0.01" }
           },
           "protocols": [{ "x402": {} }],
           "x402": {
@@ -126,7 +134,7 @@
               "scheme": "exact",
               "network": "eip155:8453",
               "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-              "amount": "1000",
+              "amount": "10000",
               "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
               "maxTimeoutSeconds": 60,
               "extra": { "name": "USD Coin", "version": "2" }
@@ -189,7 +197,7 @@
                       "scheme": "exact",
                       "network": "eip155:8453",
                       "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-                      "amount": "1000",
+                      "amount": "10000",
                       "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
                       "maxTimeoutSeconds": 60,
                       "extra": { "name": "USD Coin", "version": "2" }
@@ -229,7 +237,7 @@
           "scheme":            { "type": "string", "example": "exact" },
           "network":           { "type": "string", "example": "eip155:8453" },
           "asset":             { "type": "string", "description": "ERC-20 contract address." },
-          "amount":            { "type": "string", "example": "1000", "description": "Payment amount in atomic units (USDC has 6 decimals, so 1000 = $0.001)." },
+          "amount":            { "type": "string", "example": "10000", "description": "Payment amount in atomic units (USDC has 6 decimals, so 10000 = $0.01)." },
           "payTo":             { "type": "string", "description": "EVM wallet address that receives payment." },
           "maxTimeoutSeconds": { "type": "integer", "example": 60 },
           "extra": {

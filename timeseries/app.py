@@ -12,8 +12,8 @@ app = Flask(__name__)
 PAY_TO_ADDRESS = os.environ.get('PAY_TO_ADDRESS', '0xc99b83818c8865340AC55C45554f377f41c68DBC')
 X402_ASSET     = os.environ.get('X402_ASSET',     '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
 X402_NETWORK   = os.environ.get('X402_NETWORK',   'eip155:8453')
-# 0.001 USDC in atomic units (USDC has 6 decimals → 0.001 * 10^6 = 1000)
-X402_MAX_AMOUNT = os.environ.get('X402_MAX_AMOUNT', '1000')
+# 0.01 USDC in atomic units (USDC has 6 decimals → 0.01 * 10^6 = 10000)
+X402_MAX_AMOUNT = os.environ.get('X402_MAX_AMOUNT', '10000')
 FACILITATOR_URL = os.environ.get('FACILITATOR_URL', 'https://x402.org/facilitator')
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'https://easy-predict.com').rstrip('/')
 
@@ -122,10 +122,18 @@ def timeseries_post():
     if data is None:
         return jsonify(error='Invalid JSON body'), 400
 
+    context = None
     if isinstance(data, list):
         series = data
     elif isinstance(data, dict):
         series = data.get('series')
+        raw_context = data.get('context')
+        if raw_context is not None:
+            if not isinstance(raw_context, str):
+                return jsonify(error="'context' must be a string"), 400
+            if len(raw_context) > 200:
+                return jsonify(error="'context' must be 200 characters or fewer"), 400
+            context = raw_context
     else:
         series = None
 
@@ -137,12 +145,21 @@ def timeseries_post():
     except (ValueError, Exception) as exc:
         return jsonify(error=str(exc)), 400
 
-    return jsonify(
+    result = dict(
         prediction=prediction,
         method='log1p-linear-extrapolation',
         slope=slope,
         intercept=intercept,
     )
+    if context is not None:
+        result['context'] = context
+    return jsonify(result)
+
+
+@app.route('/llms.txt')
+def llms_txt():
+    """Serve the llms.txt document for LLM crawlers. Free, no payment."""
+    return send_from_directory(ROOT_DIR, 'llms.txt', mimetype='text/plain')
 
 
 @app.route('/openapi.json')

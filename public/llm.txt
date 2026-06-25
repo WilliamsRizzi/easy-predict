@@ -1,0 +1,37 @@
+# easy-predict
+
+> Agent-first time series prediction API. Send a list of numbers, get the next predicted value. $0.01 USDC per call on Base via x402 v2 micropayments.
+
+## Usage
+
+POST /timeseries with a JSON body and a signed x402 v2 payment header. Omit the payment header to receive a 402 response containing exact payment terms — use those terms to construct and sign the payment payload, then retry.
+
+Request body (object form):
+
+```json
+{"series": [1.0, 2.3, 4.1, 6.8, 9.2], "context": "monthly revenue in USD"}
+```
+
+- `series`: array of 3–10 finite numbers (required)
+- `context`: plain-text description of what the series represents, max 200 chars (optional — helps select the best model)
+
+Response:
+
+```json
+{"prediction": 12.47, "method": "log1p-linear-extrapolation", "slope": 0.218, "intercept": 0.093, "context": "monthly revenue in USD"}
+```
+
+## Payment
+
+- Network: Base (eip155:8453)
+- Asset: USDC — 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+- Amount: $0.01 (10000 atomic units, 6 decimals)
+- Facilitator: https://x402.org/facilitator
+- Header: `PAYMENT-SIGNATURE: <base64-encoded signed x402 v2 PaymentPayload JSON>`
+
+## Endpoints
+
+- [POST /timeseries](https://easy-predict.com/timeseries): Predict the next value in a numeric series. Requires x402 v2 payment.
+- [GET /.well-known/x402](https://easy-predict.com/.well-known/x402): Machine-readable x402 v2 resource list and payment requirements.
+- [GET /openapi.json](https://easy-predict.com/openapi.json): Full OpenAPI 3.1 specification.
+- [GET /llms.txt](https://easy-predict.com/llms.txt): This document.

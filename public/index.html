@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>easy-predict — Agent-First Time Series API</title>
-  <meta name="description" content="Micropayment-gated time series prediction for AI agents. Send a list of numbers, get the next predicted value. $0.001 USDC per call on Base via x402.">
+  <meta name="description" content="Micropayment-gated time series prediction for AI agents. Send a list of numbers, get the next predicted value. $0.01 USDC per call on Base via x402.">
   <!-- Machine-readable discovery links for AI crawlers -->
   <link rel="openapi" href="/openapi.json" type="application/json">
   <link rel="x402-discovery" href="/.well-known/x402" type="application/json">
@@ -300,7 +300,7 @@
 
     <div class="stats">
       <div class="stat">
-        <span class="stat-value">$0.001</span>
+        <span class="stat-value">$0.01</span>
         <span class="stat-label">per prediction</span>
       </div>
       <div class="stat">
@@ -347,7 +347,7 @@
     <span class="token-key">"scheme":</span>           <span class="token-string">"exact"</span>,
     <span class="token-key">"network":</span>          <span class="token-string">"base"</span>,
     <span class="token-key">"asset":</span>            <span class="token-string">"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"</span>,
-    <span class="token-key">"maxAmountRequired":</span> <span class="token-string">"1000"</span>,
+    <span class="token-key">"maxAmountRequired":</span> <span class="token-string">"10000"</span>,
     <span class="token-key">"payTo":</span>            <span class="token-string">"0xc99b83818c8865340AC55C45554f377f41c68DBC"</span>
   <span class="token-string">}]</span>,
   <span class="token-key">"facilitator":</span> <span class="token-string">"https://x402.org/facilitator"</span>
@@ -361,7 +361,7 @@
         <div class="endpoint-header">
           <span class="method method-post">POST</span>
           <span class="endpoint-path">/timeseries</span>
-          <span class="pill pill-paid">x402 · $0.001 USDC</span>
+          <span class="pill pill-paid">x402 · $0.01 USDC</span>
         </div>
         <div class="endpoint-body">
           <p class="endpoint-desc">
@@ -405,7 +405,7 @@
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <div class="step-text"><strong>Your agent signs the payment.</strong> Use any x402-compatible wallet or the <a href="https://x402.org">x402 SDK</a> to create a signed EIP-712 transfer for 0.001 USDC on Base.</div>
+          <div class="step-text"><strong>Your agent signs the payment.</strong> Use any x402-compatible wallet or the <a href="https://x402.org">x402 SDK</a> to create a signed EIP-712 transfer for 0.01 USDC on Base.</div>
         </div>
         <div class="step">
           <div class="step-num">3</div>

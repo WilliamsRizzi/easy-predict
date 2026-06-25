@@ -1,6 +1,6 @@
 const PAY_TO_ADDRESS  = '0xc99b83818c8865340AC55C45554f377f41c68DBC';
 const X402_ASSET      = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const X402_AMOUNT     = '1000';
+const X402_AMOUNT     = '10000';
 const FACILITATOR_URL = 'https://x402.org/facilitator';
 
 export interface Env {
@@ -133,10 +133,27 @@ async function handleTimeseriesPost(
   }
 
   let series: unknown;
+  let context: string | undefined;
   if (Array.isArray(data)) {
     series = data;
   } else if (data && typeof data === 'object' && 'series' in data) {
-    series = (data as Record<string, unknown>).series;
+    const obj = data as Record<string, unknown>;
+    series = obj.series;
+    if (obj.context !== undefined) {
+      if (typeof obj.context !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "'context' must be a string" }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (obj.context.length > 200) {
+        return new Response(
+          JSON.stringify({ error: "'context' must be 200 characters or fewer" }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      context = obj.context;
+    }
   }
 
   if (!Array.isArray(series)) {
@@ -156,8 +173,10 @@ async function handleTimeseriesPost(
   try {
     const { prediction, slope, intercept } = predictLog1p(series as number[]);
     ctx.waitUntil(settlePayment(paymentHeader));
+    const result: Record<string, unknown> = { prediction, method: 'log1p-linear-extrapolation', slope, intercept };
+    if (context !== undefined) result.context = context;
     return new Response(
-      JSON.stringify({ prediction, method: 'log1p-linear-extrapolation', slope, intercept }),
+      JSON.stringify(result),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   } catch (err) {
