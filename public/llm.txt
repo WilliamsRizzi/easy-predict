@@ -1,10 +1,14 @@
 # easy-predict
 
-> Agent-first time series prediction API. Send a list of numbers, get the next predicted value. $0.01 USDC per call on Base via x402 v2 micropayments.
+> Agent-first prediction and anomaly detection API. Send a list of numbers, get a prediction or anomaly report. $0.01 USDC per call on Base via x402 v2 micropayments.
 
 ## Usage
 
-POST /timeseries with a JSON body and a signed x402 v2 payment header. Omit the payment header to receive a 402 response containing exact payment terms — use those terms to construct and sign the payment payload, then retry.
+POST to a paid endpoint with a signed x402 v2 payment header. Omit the payment header to receive a 402 response containing exact payment terms — use those terms to construct and sign the payment payload, then retry.
+
+---
+
+## POST /timeseries — predict next value
 
 Request body (object form):
 
@@ -13,13 +17,44 @@ Request body (object form):
 ```
 
 - `series`: array of 3–1000 finite numbers (required)
-- `context`: plain-text description of what the series represents, max 200 chars (optional — helps select the best model)
+- `context`: plain-text description of what the series represents, max 200 chars (optional)
 
 Response:
 
 ```json
 {"prediction": 12.47, "method": "log1p-linear-extrapolation", "slope": 0.218, "intercept": 0.093, "context": "monthly revenue in USD"}
 ```
+
+---
+
+## POST /anomaly-detection — detect anomalies via z-score
+
+Request body (object form):
+
+```json
+{"series": [1.0, 2.3, 4.1, 6.8, 99.0], "threshold": 2.0, "context": "cpu usage %"}
+```
+
+- `series`: array of 3–1000 finite numbers (required)
+- `threshold`: z-score cutoff, 0 < threshold ≤ 10, default 2.0 (optional)
+- `context`: plain-text description of what the series represents, max 200 chars (optional)
+
+Response:
+
+```json
+{
+  "anomalies": [{"index": 4, "value": 99.0, "z_score": 2.14}],
+  "method": "z-score",
+  "mean": 15.12,
+  "std": 39.18,
+  "threshold": 2.0,
+  "context": "cpu usage %"
+}
+```
+
+`anomalies` is an empty array when no points exceed the threshold.
+
+---
 
 ## Payment
 
@@ -32,6 +67,7 @@ Response:
 ## Endpoints
 
 - [POST /timeseries](https://easy-predict.com/timeseries): Predict the next value in a numeric series. Requires x402 v2 payment.
+- [POST /anomaly-detection](https://easy-predict.com/anomaly-detection): Detect anomalies in a numeric series via z-score. Requires x402 v2 payment.
 - [GET /.well-known/x402](https://easy-predict.com/.well-known/x402): Machine-readable x402 v2 resource list and payment requirements.
 - [GET /openapi.json](https://easy-predict.com/openapi.json): Full OpenAPI 3.1 specification.
 - [GET /llm.txt](https://easy-predict.com/llm.txt): This document.

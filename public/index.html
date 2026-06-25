@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>easy-predict — Agent-First Time Series API</title>
-  <meta name="description" content="Micropayment-gated time series prediction for AI agents. Send a list of numbers, get the next predicted value. $0.01 USDC per call on Base via x402.">
+  <title>easy-predict — Agent-First Prediction &amp; Anomaly Detection API</title>
+  <meta name="description" content="Micropayment-gated prediction and anomaly detection for AI agents. Send a list of numbers, get a prediction or anomaly report. $0.01 USDC per call on Base via x402.">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <!-- Machine-readable discovery links for AI crawlers -->
   <link rel="openapi" href="/openapi.json" type="application/json">
@@ -287,9 +287,9 @@
 
     <section class="hero">
       <div class="badge">x402 · Base · USDC</div>
-      <h1>Time series prediction<br>for <em>AI agents</em></h1>
+      <h1>Prediction &amp; anomaly detection<br>for <em>AI agents</em></h1>
       <p>
-        Send a list of numbers. Get the next predicted value.
+        Send a list of numbers. Get the next predicted value or a list of anomalous points.
         Paid per call via <a href="https://x402.org">x402</a> micropayments —
         no API keys, no accounts, no monthly bills.
       </p>
@@ -302,15 +302,15 @@
     <div class="stats">
       <div class="stat">
         <span class="stat-value">$0.01</span>
-        <span class="stat-label">per prediction</span>
+        <span class="stat-label">per call</span>
       </div>
       <div class="stat">
         <span class="stat-value">USDC</span>
         <span class="stat-label">currency · Base network</span>
       </div>
       <div class="stat">
-        <span class="stat-value">log1p</span>
-        <span class="stat-label">regression method</span>
+        <span class="stat-value">2</span>
+        <span class="stat-label">paid endpoints</span>
       </div>
       <div class="stat">
         <span class="stat-value">3–1000</span>
@@ -321,7 +321,7 @@
     <section id="quickstart">
       <h2>Quick start</h2>
 
-      <h3>Request</h3>
+      <h3>Predict next value · POST /timeseries</h3>
       <pre><span class="token-method">POST</span> <span class="token-url">https://easy-predict.com/timeseries</span>
 <span class="token-header">Content-Type:</span> <span class="token-string">application/json</span>
 <span class="token-header">X-PAYMENT:</span>      <span class="token-string">&lt;x402-signed-payment-payload&gt;</span>
@@ -331,8 +331,8 @@
 <span class="token-key">}</span></pre>
 
       <br>
-      <h3>Response · 200 OK</h3>
-      <pre><span class="token-key">{</span>
+      <pre><span class="token-comment">// 200 OK</span>
+<span class="token-key">{</span>
   <span class="token-key">"prediction":</span>  <span class="token-number">12.47</span>,
   <span class="token-key">"method":</span>      <span class="token-string">"log1p-linear-extrapolation"</span>,
   <span class="token-key">"slope":</span>       <span class="token-number">0.218</span>,
@@ -340,18 +340,38 @@
 <span class="token-key">}</span></pre>
 
       <br>
+      <h3>Detect anomalies · POST /anomaly-detection</h3>
+      <pre><span class="token-method">POST</span> <span class="token-url">https://easy-predict.com/anomaly-detection</span>
+<span class="token-header">Content-Type:</span> <span class="token-string">application/json</span>
+<span class="token-header">X-PAYMENT:</span>      <span class="token-string">&lt;x402-signed-payment-payload&gt;</span>
+
+<span class="token-key">{</span>
+  <span class="token-key">"series":</span>    <span class="token-string">[1.0, 2.3, 4.1, 6.8, 99.0]</span>,
+  <span class="token-key">"threshold":</span> <span class="token-number">2.0</span>
+<span class="token-key">}</span></pre>
+
+      <br>
+      <pre><span class="token-comment">// 200 OK</span>
+<span class="token-key">{</span>
+  <span class="token-key">"anomalies":</span>  <span class="token-string">[{ "index": 4, "value": 99.0, "z_score": 2.14 }]</span>,
+  <span class="token-key">"method":</span>     <span class="token-string">"z-score"</span>,
+  <span class="token-key">"mean":</span>       <span class="token-number">15.12</span>,
+  <span class="token-key">"std":</span>        <span class="token-number">39.18</span>,
+  <span class="token-key">"threshold":</span>  <span class="token-number">2.0</span>
+<span class="token-key">}</span></pre>
+
+      <br>
       <h3>No payment · 402 Payment Required</h3>
       <pre><span class="token-key">{</span>
-  <span class="token-key">"x402Version":</span> <span class="token-number">1</span>,
-  <span class="token-key">"error":</span>       <span class="token-string">"Payment Required: send a signed payment in X-PAYMENT"</span>,
+  <span class="token-key">"x402Version":</span> <span class="token-number">2</span>,
+  <span class="token-key">"error":</span>       <span class="token-string">"Payment Required"</span>,
   <span class="token-key">"accepts":</span> <span class="token-string">[{</span>
     <span class="token-key">"scheme":</span>           <span class="token-string">"exact"</span>,
-    <span class="token-key">"network":</span>          <span class="token-string">"base"</span>,
+    <span class="token-key">"network":</span>          <span class="token-string">"eip155:8453"</span>,
     <span class="token-key">"asset":</span>            <span class="token-string">"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"</span>,
-    <span class="token-key">"maxAmountRequired":</span> <span class="token-string">"10000"</span>,
+    <span class="token-key">"amount":</span>           <span class="token-string">"10000"</span>,
     <span class="token-key">"payTo":</span>            <span class="token-string">"0xc99b83818c8865340AC55C45554f377f41c68DBC"</span>
-  <span class="token-string">}]</span>,
-  <span class="token-key">"facilitator":</span> <span class="token-string">"https://x402.org/facilitator"</span>
+  <span class="token-string">}]</span>
 <span class="token-key">}</span></pre>
     </section>
 
@@ -370,6 +390,21 @@
             Returns the next predicted value using log1p linear regression.
             Calls without a valid <code>X-PAYMENT</code> header receive HTTP&nbsp;402
             with the full payment requirements in the response body.
+          </p>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method method-post">POST</span>
+          <span class="endpoint-path">/anomaly-detection</span>
+          <span class="pill pill-paid">x402 · $0.01 USDC</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">
+            Accepts <code>{"series": [n, …], "threshold": 2.0}</code> or a bare JSON array (3–1000 numbers).
+            Returns a list of anomalous points using z-score detection. Optional <code>threshold</code> (default&nbsp;2.0,
+            range&nbsp;0–10) controls sensitivity — lower flags more points.
           </p>
         </div>
       </div>
@@ -402,7 +437,7 @@
       <div class="steps">
         <div class="step">
           <div class="step-num">1</div>
-          <div class="step-text"><strong>Your agent sends POST /timeseries with no payment.</strong> The API returns HTTP 402 with the exact payment terms (network, asset, amount, recipient) in the <code>accepts</code> array.</div>
+          <div class="step-text"><strong>Your agent sends POST /timeseries or /anomaly-detection with no payment.</strong> The API returns HTTP 402 with the exact payment terms (network, asset, amount, recipient) in the <code>accepts</code> array.</div>
         </div>
         <div class="step">
           <div class="step-num">2</div>
@@ -414,7 +449,7 @@
         </div>
         <div class="step">
           <div class="step-num">4</div>
-          <div class="step-text"><strong>You get the prediction.</strong> HTTP 200 with <code>prediction</code>, <code>slope</code>, and <code>intercept</code>.</div>
+          <div class="step-text"><strong>You get the result.</strong> HTTP 200 with <code>prediction</code> (timeseries) or <code>anomalies</code> (anomaly-detection).</div>
         </div>
       </div>
     </section>
@@ -443,7 +478,7 @@
 
 <footer>
   <div class="container">
-    <span>easy-predict.com · log1p time series API</span>
+    <span>easy-predict.com · prediction &amp; anomaly detection API</span>
     <span>Base · USDC · <a href="https://x402.org">x402</a></span>
   </div>
 </footer>

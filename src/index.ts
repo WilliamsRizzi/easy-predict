@@ -20,13 +20,13 @@ function paymentRequirements() {
   };
 }
 
-function paymentRequired(resourceUrl: string, error = 'Payment Required'): Response {
+function paymentRequired(resourceUrl: string, error = 'Payment Required', description = ''): Response {
   const body = {
     x402Version: 2,
     error,
     resource: {
       url: resourceUrl,
-      description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
+      description,
       mimeType: 'application/json',
     },
     accepts: [paymentRequirements()],
@@ -103,18 +103,130 @@ function predictLog1p(series: number[]): { prediction: number; slope: number; in
   return { prediction: Math.expm1(slope * n + intercept), slope, intercept };
 }
 
+function detectAnomalies(
+  series: number[],
+  threshold: number,
+): { anomalies: { index: number; value: number; z_score: number }[]; method: string; mean: number; std: number; threshold: number } {
+  const n = series.length;
+  if (n < 3 || n > 1000) throw new Error('Series length must be between 3 and 1000');
+  if (threshold <= 0 || threshold > 10) throw new Error('threshold must be between 0 (exclusive) and 10');
+  const mean = series.reduce((a, b) => a + b, 0) / n;
+  const variance = series.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
+  const std = Math.sqrt(variance);
+  const anomalies = std === 0
+    ? []
+    : series
+        .map((v, i) => ({ index: i, value: v, z_score: (v - mean) / std }))
+        .filter(p => Math.abs(p.z_score) > threshold);
+  return { anomalies, method: 'z-score', mean, std, threshold };
+}
+
+async function handleAnomalyDetectionPost(
+  request: Request,
+  baseUrl: string,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const resourceUrl = `${baseUrl}/anomaly-detection`;
+  const resourceDesc = 'Detect anomalies in a numeric series using z-score method.';
+
+  const paymentHeader = getPaymentHeader(request);
+  if (!paymentHeader) return paymentRequired(resourceUrl, 'Payment Required', resourceDesc);
+
+  const { isValid, invalidReason } = await verifyPayment(paymentHeader);
+  if (!isValid) return paymentRequired(resourceUrl, invalidReason ?? 'Invalid payment', resourceDesc);
+
+  const ct = request.headers.get('Content-Type') ?? '';
+  if (!ct.includes('application/json')) {
+    return new Response(JSON.stringify({ error: 'JSON body required' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let data: unknown;
+  try {
+    data = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  let series: unknown;
+  let context: string | undefined;
+  let threshold = 2.0;
+
+  if (Array.isArray(data)) {
+    series = data;
+  } else if (data && typeof data === 'object' && 'series' in data) {
+    const obj = data as Record<string, unknown>;
+    series = obj.series;
+    if (obj.context !== undefined) {
+      if (typeof obj.context !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "'context' must be a string" }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (obj.context.length > 200) {
+        return new Response(
+          JSON.stringify({ error: "'context' must be 200 characters or fewer" }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      context = obj.context;
+    }
+    if (obj.threshold !== undefined) {
+      if (typeof obj.threshold !== 'number' || !isFinite(obj.threshold)) {
+        return new Response(
+          JSON.stringify({ error: "'threshold' must be a number" }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      threshold = obj.threshold;
+    }
+  }
+
+  if (!Array.isArray(series)) {
+    return new Response(
+      JSON.stringify({ error: "Provide a 'series' key with a number array, or send a bare JSON array" }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  if (!series.every(v => typeof v === 'number' && isFinite(v))) {
+    return new Response(
+      JSON.stringify({ error: 'All series values must be finite numbers' }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
+  try {
+    const result = detectAnomalies(series as number[], threshold);
+    ctx.waitUntil(settlePayment(paymentHeader));
+    const body: Record<string, unknown> = { ...result };
+    if (context !== undefined) body.context = context;
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+}
+
 async function handleTimeseriesPost(
   request: Request,
   baseUrl: string,
   ctx: ExecutionContext,
 ): Promise<Response> {
   const resourceUrl = `${baseUrl}/timeseries`;
+  const resourceDesc = 'Predict the next value in a numeric series via log1p linear extrapolation.';
 
   const paymentHeader = getPaymentHeader(request);
-  if (!paymentHeader) return paymentRequired(resourceUrl);
+  if (!paymentHeader) return paymentRequired(resourceUrl, 'Payment Required', resourceDesc);
 
   const { isValid, invalidReason } = await verifyPayment(paymentHeader);
-  if (!isValid) return paymentRequired(resourceUrl, invalidReason ?? 'Invalid payment');
+  if (!isValid) return paymentRequired(resourceUrl, invalidReason ?? 'Invalid payment', resourceDesc);
 
   const ct = request.headers.get('Content-Type') ?? '';
   if (!ct.includes('application/json')) {
@@ -188,19 +300,29 @@ async function handleTimeseriesPost(
 }
 
 function handleWellKnownX402(baseUrl: string): Response {
-  const resourceUrl = `${baseUrl}/timeseries`;
   return new Response(JSON.stringify({
     x402Version: 2,
     openapi: `${baseUrl}/openapi.json`,
-    resources: [{
-      resource: {
-        url: resourceUrl,
-        description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
-        mimeType: 'application/json',
+    resources: [
+      {
+        resource: {
+          url: `${baseUrl}/timeseries`,
+          description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
+          mimeType: 'application/json',
+        },
+        method: 'POST',
+        accepts: [paymentRequirements()],
       },
-      method: 'POST',
-      accepts: [paymentRequirements()],
-    }],
+      {
+        resource: {
+          url: `${baseUrl}/anomaly-detection`,
+          description: 'Detect anomalies in a numeric series using z-score method.',
+          mimeType: 'application/json',
+        },
+        method: 'POST',
+        accepts: [paymentRequirements()],
+      },
+    ],
   }), { headers: { 'Content-Type': 'application/json' } });
 }
 
@@ -240,11 +362,30 @@ export default {
       return handleTimeseriesPost(request, baseUrl, ctx);
     }
 
+    if (pathname === '/anomaly-detection' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+      const { success } = await env.RATE_LIMITER.limit({ key: ip });
+      if (!success) {
+        return new Response(JSON.stringify({ error: 'Too many requests' }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+        });
+      }
+      return handleAnomalyDetectionPost(request, baseUrl, ctx);
+    }
+
     if (pathname === '/.well-known/x402') return handleWellKnownX402(baseUrl);
     if (pathname === '/favicon.ico' || pathname === '/favicon.svg') return handleFavicon();
 
-    if (pathname === '/timeseries' && request.method === 'GET') {
-      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url).toString(), request));
+    if ((pathname === '/timeseries' || pathname === '/anomaly-detection') && request.method === 'GET') {
+      const accept = request.headers.get('Accept') ?? '';
+      if (accept.includes('application/json')) {
+        const desc = pathname === '/timeseries'
+          ? 'Predict the next value in a numeric series via log1p linear extrapolation.'
+          : 'Detect anomalies in a numeric series using z-score method.';
+        return paymentRequired(`${baseUrl}${pathname}`, 'Payment Required', desc);
+      }
+      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url)));
     }
 
     try {

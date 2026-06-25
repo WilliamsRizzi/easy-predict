@@ -3,8 +3,10 @@ import json
 import base64
 import numpy as np
 from flask import Flask, request, jsonify, send_from_directory
+from anomaly_detection.app import blueprint as anomaly_detection_blueprint
 
 app = Flask(__name__)
+app.register_blueprint(anomaly_detection_blueprint)
 
 # ---------------------------------------------------------------------------
 # Configuration — all overridable via environment variables.
@@ -97,7 +99,8 @@ def index():
 
 @app.route('/timeseries', methods=['GET'])
 def timeseries_get():
-    """Info page for /timeseries — same splash page."""
+    if 'application/json' in request.headers.get('Accept', ''):
+        return _payment_required(f'{PUBLIC_BASE_URL}/timeseries')
     return send_from_directory(ROOT_DIR, 'index.html')
 
 
@@ -171,19 +174,29 @@ def openapi_spec():
 @app.route('/.well-known/x402')
 def well_known_x402():
     """Machine-readable x402 v2 resource list. Free, no payment."""
-    resource_url = f'{PUBLIC_BASE_URL}/timeseries'
     return jsonify({
         'x402Version': 2,
         'openapi':     f'{PUBLIC_BASE_URL}/openapi.json',
-        'resources': [{
-            'resource': {
-                'url':         resource_url,
-                'description': 'Predict the next value in a numeric series via log1p linear extrapolation.',
-                'mimeType':    'application/json',
+        'resources': [
+            {
+                'resource': {
+                    'url':         f'{PUBLIC_BASE_URL}/timeseries',
+                    'description': 'Predict the next value in a numeric series via log1p linear extrapolation.',
+                    'mimeType':    'application/json',
+                },
+                'method':  'POST',
+                'accepts': [_payment_requirements()],
             },
-            'method':  'POST',
-            'accepts': [_payment_requirements()],
-        }],
+            {
+                'resource': {
+                    'url':         f'{PUBLIC_BASE_URL}/anomaly-detection',
+                    'description': 'Detect anomalies in a numeric series using z-score method.',
+                    'mimeType':    'application/json',
+                },
+                'method':  'POST',
+                'accepts': [_payment_requirements()],
+            },
+        ],
     })
 
 

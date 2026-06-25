@@ -1,11 +1,11 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "easy-predict Time Series Prediction API",
-    "version": "1.0.0",
-    "description": "Agent-first time series prediction via log1p linear extrapolation. All paid endpoints use x402 v2 micropayments on Base (USDC). Calling a paid endpoint without payment returns HTTP 402 with the full PaymentRequired body and PAYMENT-REQUIRED header.",
+    "title": "easy-predict API",
+    "version": "1.1.0",
+    "description": "Agent-first prediction and anomaly detection API. All paid endpoints use x402 v2 micropayments on Base (USDC). Calling a paid endpoint without payment returns HTTP 402 with the full PaymentRequired body and PAYMENT-REQUIRED header.",
     "contact": { "email": "support@easy-predict.com" },
-    "x-guidance": "POST /timeseries with PAYMENT-SIGNATURE containing a signed x402 v2 payment payload. Omit PAYMENT-SIGNATURE to receive the 402 payment challenge with exact terms. See /.well-known/x402 for the machine-readable resource list."
+    "x-guidance": "POST to a paid endpoint with PAYMENT-SIGNATURE containing a signed x402 v2 payment payload. Omit PAYMENT-SIGNATURE to receive the 402 payment challenge with exact terms. See /.well-known/x402 for the machine-readable resource list."
   },
   "servers": [{ "url": "https://easy-predict.com" }],
   "x-x402": {
@@ -128,6 +128,156 @@
             "resource": {
               "url": "https://easy-predict.com/timeseries",
               "description": "Predict the next value in a numeric series via log1p linear extrapolation.",
+              "mimeType": "application/json"
+            },
+            "accepts": [{
+              "scheme": "exact",
+              "network": "eip155:8453",
+              "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "amount": "10000",
+              "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
+              "maxTimeoutSeconds": 60,
+              "extra": { "name": "USD Coin", "version": "2" }
+            }],
+            "facilitator": "https://x402.org/facilitator"
+          }
+        }
+      }
+    },
+    "/anomaly-detection": {
+      "get": {
+        "summary": "Splash page",
+        "description": "Human-readable landing page for easy-predict.",
+        "security": [],
+        "responses": {
+          "200": { "description": "HTML splash page" }
+        }
+      },
+      "post": {
+        "summary": "Detect anomalies in a numeric series",
+        "description": "Accepts a JSON array or an object with a `series` key (3–1000 numbers) and returns a list of anomalous points using z-score detection. An optional `threshold` (default 2.0) controls sensitivity. The endpoint is gated by an x402 v2 micropayment; calling without a valid `PAYMENT-SIGNATURE` header returns HTTP 402 with the full payment terms.",
+        "security": [{ "x402": [] }],
+        "parameters": [
+          {
+            "name": "PAYMENT-SIGNATURE",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Base64-encoded signed x402 v2 PaymentPayload (JSON)."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": { "type": "number" },
+                    "minItems": 3,
+                    "maxItems": 1000,
+                    "example": [1.0, 2.3, 4.1, 6.8, 99.0]
+                  },
+                  {
+                    "type": "object",
+                    "required": ["series"],
+                    "properties": {
+                      "series": {
+                        "type": "array",
+                        "items": { "type": "number" },
+                        "minItems": 3,
+                        "maxItems": 1000,
+                        "example": [1.0, 2.3, 4.1, 6.8, 99.0]
+                      },
+                      "threshold": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 10,
+                        "default": 2.0,
+                        "description": "Z-score cutoff above which a point is flagged as an anomaly. Default 2.0. Lower values flag more points; higher values flag fewer.",
+                        "example": 2.0
+                      },
+                      "context": {
+                        "type": "string",
+                        "maxLength": 200,
+                        "description": "Optional description of what this series represents (e.g. 'cpu usage %'). Echoed back in the response.",
+                        "example": "cpu usage %"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Anomaly detection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["anomalies", "method", "mean", "std", "threshold"],
+                  "properties": {
+                    "anomalies": {
+                      "type": "array",
+                      "description": "Points whose absolute z-score exceeds the threshold. Empty array means no anomalies detected.",
+                      "items": {
+                        "type": "object",
+                        "required": ["index", "value", "z_score"],
+                        "properties": {
+                          "index":   { "type": "integer", "description": "0-based position in the input series." },
+                          "value":   { "type": "number",  "description": "Original value at this index." },
+                          "z_score": { "type": "number",  "description": "Signed z-score (sample std, ddof=1)." }
+                        }
+                      }
+                    },
+                    "method":    { "type": "string", "enum": ["z-score"] },
+                    "mean":      { "type": "number", "description": "Sample mean of the series." },
+                    "std":       { "type": "number", "description": "Sample standard deviation (ddof=1)." },
+                    "threshold": { "type": "number", "description": "The z-score cutoff used." },
+                    "context":   { "type": "string", "description": "Echoed back from the request if provided." }
+                  }
+                },
+                "example": {
+                  "anomalies": [{ "index": 4, "value": 99.0, "z_score": 2.14 }],
+                  "method": "z-score",
+                  "mean": 15.12,
+                  "std": 39.18,
+                  "threshold": 2.0,
+                  "context": "cpu usage %"
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid request — bad JSON, wrong type, series outside 3–1000 elements, or invalid threshold." },
+          "402": {
+            "description": "Payment Required — missing or invalid x402 v2 payment.",
+            "headers": {
+              "PAYMENT-REQUIRED": {
+                "schema": { "type": "string" },
+                "description": "Base64-encoded JSON of the full PaymentRequired object."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaymentRequired" }
+              }
+            }
+          }
+        },
+        "x-payment-info": {
+          "price": {
+            "fixed":   { "mode": "fixed",   "currency": "USD", "amount": "0.01" },
+            "dynamic": { "mode": "dynamic", "currency": "USD", "min": "0.01", "max": "0.01" }
+          },
+          "protocols": [{ "x402": {} }],
+          "x402": {
+            "version": 2,
+            "resource": {
+              "url": "https://easy-predict.com/anomaly-detection",
+              "description": "Detect anomalies in a numeric series using z-score method.",
               "mimeType": "application/json"
             },
             "accepts": [{
