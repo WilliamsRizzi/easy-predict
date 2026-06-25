@@ -4,7 +4,8 @@
     "title": "easy-predict API",
     "version": "1.1.0",
     "description": "Agent-first prediction and anomaly detection API. All paid endpoints use x402 v2 micropayments on Base (USDC). Calling a paid endpoint without payment returns HTTP 402 with the full PaymentRequired body and PAYMENT-REQUIRED header.",
-    "contact": { "email": "support@easy-predict.com" },
+    "contact": { "email": "support@easy-predict.com", "url": "https://easy-predict.com" },
+    "license": { "name": "MIT", "url": "https://opensource.org/licenses/MIT" },
     "x-guidance": "POST to a paid endpoint with PAYMENT-SIGNATURE containing a signed x402 v2 payment payload. Omit PAYMENT-SIGNATURE to receive the 402 payment challenge with exact terms. See /.well-known/x402 for the machine-readable resource list."
   },
   "servers": [{ "url": "https://easy-predict.com" }],
