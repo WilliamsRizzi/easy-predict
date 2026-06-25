@@ -1,11 +1,11 @@
 import os
 import pytest
-from timeseries.app import predict_log1p
+from timeseries.app import predict_log1p, predict_next
 from anomaly_detection.app import detect_anomalies
 
 
 # ---------------------------------------------------------------------------
-# Unit tests — prediction function
+# Unit tests — predict_log1p (kept for backward compat)
 # ---------------------------------------------------------------------------
 
 def test_predict_valid():
@@ -20,6 +20,44 @@ def test_predict_too_short():
 def test_predict_too_long():
     with pytest.raises(ValueError):
         predict_log1p(list(range(1001)))
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — predict_next (model selection)
+# ---------------------------------------------------------------------------
+
+def test_predict_next_linear_series():
+    # Perfect arithmetic sequence — linear should win with near-zero holdout error
+    result = predict_next([2, 4, 6, 8, 10])
+    assert result['method'] == 'linear'
+    assert abs(result['prediction'] - 12.0) < 0.01
+    assert 'holdout_errors' in result
+    assert len(result['holdout_errors']) >= 3
+
+def test_predict_next_stationary_series():
+    # Constant series — all models tie at 0 error; prediction must be ~5
+    result = predict_next([5, 5, 5, 5, 5, 5])
+    assert abs(result['prediction'] - 5.0) < 0.01
+    assert 'holdout_errors' in result
+
+def test_predict_next_has_slope_when_linear():
+    result = predict_next([1, 2, 3, 4, 5])
+    if result['method'] in ('linear', 'log1p-linear'):
+        assert 'slope' in result
+        assert 'intercept' in result
+
+def test_predict_next_negative_values_skip_log1p():
+    # Negative values: log1p-linear must be skipped
+    result = predict_next([-5, -3, -1, 1, 3])
+    assert result['method'] != 'log1p-linear'
+
+def test_predict_next_too_short():
+    with pytest.raises(ValueError):
+        predict_next([1, 2])
+
+def test_predict_next_too_long():
+    with pytest.raises(ValueError):
+        predict_next(list(range(1001)))
 
 
 # ---------------------------------------------------------------------------
@@ -103,9 +141,9 @@ def test_paid_object_body(client):
     assert resp.status_code == 200
     data = resp.get_json()
     assert 'prediction' in data
-    assert data['method'] == 'log1p-linear-extrapolation'
-    assert 'slope' in data
-    assert 'intercept' in data
+    assert 'method' in data
+    assert data['method'] in ('linear', 'log1p-linear', 'last-delta', 'mean')
+    assert 'holdout_errors' in data
 
 def test_paid_array_body(client):
     resp = client.post('/timeseries',

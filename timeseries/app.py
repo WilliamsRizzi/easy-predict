@@ -47,7 +47,7 @@ def _payment_required(resource_url: str):
         'error':       'Payment Required',
         'resource': {
             'url':         resource_url,
-            'description': 'Predict the next value in a numeric series via log1p linear extrapolation.',
+            'description': 'Predict the next value in a numeric series using automatic model selection (linear, log1p-linear, last-delta, mean).',
             'mimeType':    'application/json',
         },
         'accepts': [_payment_requirements()],
@@ -85,6 +85,93 @@ def predict_log1p(series: list) -> tuple[float, float, float]:
     slope, intercept = np.polyfit(x, y, 1)
     prediction = float(np.expm1(slope * n + intercept))
     return prediction, float(slope), float(intercept)
+
+
+def predict_next(series: list) -> dict:
+    """Model-selection prediction.
+
+    Holds out the last point, evaluates four candidate models against it,
+    then retrains the winner on the full series to produce the final prediction.
+
+    Models
+    ------
+    linear       — OLS on raw values
+    log1p-linear — OLS in log1p space (skipped if any value ≤ -1)
+    last-delta   — last value + mean first-difference (naive drift)
+    mean         — global mean (best for stationary/mean-reverting series)
+    """
+    arr = np.array(series, dtype=float)
+    n = len(arr)
+    if n < 3 or n > 1000:
+        raise ValueError('Series length must be between 3 and 1000')
+
+    train = arr[:-1]
+    holdout_val = float(arr[-1])
+    m = len(train)
+    candidates: dict = {}
+
+    # linear
+    try:
+        sl, ic = np.polyfit(np.arange(m, dtype=float), train, 1)
+        h_err = abs(float(sl * m + ic) - holdout_val)
+        sl_f, ic_f = np.polyfit(np.arange(n, dtype=float), arr, 1)
+        candidates['linear'] = {
+            'holdout_error': h_err,
+            'prediction': float(sl_f * n + ic_f),
+            'slope': round(float(sl_f), 6),
+            'intercept': round(float(ic_f), 6),
+        }
+    except Exception:
+        pass
+
+    # log1p-linear — only valid when all values > -1
+    if np.all(arr > -1):
+        try:
+            sl, ic = np.polyfit(np.arange(m, dtype=float), np.log1p(train), 1)
+            h_err = abs(float(np.expm1(sl * m + ic)) - holdout_val)
+            sl_f, ic_f = np.polyfit(np.arange(n, dtype=float), np.log1p(arr), 1)
+            candidates['log1p-linear'] = {
+                'holdout_error': h_err,
+                'prediction': float(np.expm1(sl_f * n + ic_f)),
+                'slope': round(float(sl_f), 6),
+                'intercept': round(float(ic_f), 6),
+            }
+        except Exception:
+            pass
+
+    # last-delta: last value + mean first-difference
+    try:
+        h_err = abs(float(train[-1]) + float(np.mean(np.diff(train))) - holdout_val)
+        candidates['last-delta'] = {
+            'holdout_error': h_err,
+            'prediction': float(arr[-1]) + float(np.mean(np.diff(arr))),
+        }
+    except Exception:
+        pass
+
+    # mean: global mean (best for stationary series)
+    try:
+        candidates['mean'] = {
+            'holdout_error': abs(float(np.mean(train)) - holdout_val),
+            'prediction': float(np.mean(arr)),
+        }
+    except Exception:
+        pass
+
+    if not candidates:
+        raise ValueError('No model could be fit to this series')
+
+    winner_name = min(candidates, key=lambda k: candidates[k]['holdout_error'])
+    winner = candidates[winner_name]
+    result: dict = {
+        'prediction': winner['prediction'],
+        'method': winner_name,
+        'holdout_errors': {k: round(v['holdout_error'], 6) for k, v in candidates.items()},
+    }
+    if 'slope' in winner:
+        result['slope'] = winner['slope']
+        result['intercept'] = winner['intercept']
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -144,16 +231,10 @@ def timeseries_post():
         return jsonify(error="Provide a 'series' key with a number array, or send a bare JSON array"), 400
 
     try:
-        prediction, slope, intercept = predict_log1p(series)
+        result = predict_next(series)
     except (ValueError, Exception) as exc:
         return jsonify(error=str(exc)), 400
 
-    result = dict(
-        prediction=prediction,
-        method='log1p-linear-extrapolation',
-        slope=slope,
-        intercept=intercept,
-    )
     if context is not None:
         result['context'] = context
     return jsonify(result)
@@ -181,7 +262,7 @@ def well_known_x402():
             {
                 'resource': {
                     'url':         f'{PUBLIC_BASE_URL}/timeseries',
-                    'description': 'Predict the next value in a numeric series via log1p linear extrapolation.',
+                    'description': 'Predict the next value in a numeric series using automatic model selection (linear, log1p-linear, last-delta, mean).',
                     'mimeType':    'application/json',
                 },
                 'method':  'POST',

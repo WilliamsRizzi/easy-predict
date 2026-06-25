@@ -333,10 +333,11 @@
       <br>
       <pre><span class="token-comment">// 200 OK</span>
 <span class="token-key">{</span>
-  <span class="token-key">"prediction":</span>  <span class="token-number">12.47</span>,
-  <span class="token-key">"method":</span>      <span class="token-string">"log1p-linear-extrapolation"</span>,
-  <span class="token-key">"slope":</span>       <span class="token-number">0.218</span>,
-  <span class="token-key">"intercept":</span>   <span class="token-number">0.093</span>
+  <span class="token-key">"prediction":</span>      <span class="token-number">12.1</span>,
+  <span class="token-key">"method":</span>          <span class="token-string">"linear"</span>,
+  <span class="token-key">"holdout_errors":</span>  <span class="token-key">{ <span class="token-string">"linear"</span>: <span class="token-number">0.05</span>, <span class="token-string">"log1p-linear"</span>: <span class="token-number">0.31</span>, <span class="token-string">"last-delta"</span>: <span class="token-number">0.05</span>, <span class="token-string">"mean"</span>: <span class="token-number">3.5</span> }</span>,
+  <span class="token-key">"slope":</span>           <span class="token-number">1.94</span>,
+  <span class="token-key">"intercept":</span>       <span class="token-number">0.12</span>
 <span class="token-key">}</span></pre>
 
       <br>
@@ -387,7 +388,10 @@
         <div class="endpoint-body">
           <p class="endpoint-desc">
             Accepts <code>{"series": [n, …]}</code> or a bare JSON array (3–1000 numbers).
-            Returns the next predicted value using log1p linear regression.
+            Automatically selects the best model — <code>linear</code>, <code>log1p-linear</code>,
+            <code>last-delta</code>, or <code>mean</code> — by holding out the last point as a
+            validation target, then retrains the winner on the full series. Response includes
+            <code>holdout_errors</code> for all candidates so you can see why the model was chosen.
             Calls without a valid <code>X-PAYMENT</code> header receive HTTP&nbsp;402
             with the full payment requirements in the response body.
           </p>

@@ -22,8 +22,19 @@ Request body (object form):
 Response:
 
 ```json
-{"prediction": 12.47, "method": "log1p-linear-extrapolation", "slope": 0.218, "intercept": 0.093, "context": "monthly revenue in USD"}
+{
+  "prediction": 12.1,
+  "method": "linear",
+  "holdout_errors": {"linear": 0.05, "log1p-linear": 0.31, "last-delta": 0.05, "mean": 3.5},
+  "slope": 1.94,
+  "intercept": 0.12,
+  "context": "monthly revenue in USD"
+}
 ```
+
+- `method`: winning model — `linear`, `log1p-linear`, `last-delta`, or `mean`
+- `holdout_errors`: absolute error of each candidate on the held-out last point
+- `slope`, `intercept`: present only when method is `linear` or `log1p-linear`
 
 ---
 
@@ -66,7 +77,7 @@ Response:
 
 ## Endpoints
 
-- [POST /timeseries](https://easy-predict.com/timeseries): Predict the next value in a numeric series. Requires x402 v2 payment.
+- [POST /timeseries](https://easy-predict.com/timeseries): Predict the next value in a numeric series using automatic model selection (linear, log1p-linear, last-delta, mean). Requires x402 v2 payment.
 - [POST /anomaly-detection](https://easy-predict.com/anomaly-detection): Detect anomalies in a numeric series via z-score. Requires x402 v2 payment.
 - [GET /.well-known/x402](https://easy-predict.com/.well-known/x402): Machine-readable x402 v2 resource list and payment requirements.
 - [GET /openapi.json](https://easy-predict.com/openapi.json): Full OpenAPI 3.1 specification.
