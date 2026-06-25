@@ -88,7 +88,7 @@ function settlePayment(header: string): Promise<void> {
 
 function predictLog1p(series: number[]): { prediction: number; slope: number; intercept: number } {
   const n = series.length;
-  if (n < 3 || n > 10) throw new Error('Series length must be between 3 and 10');
+  if (n < 3 || n > 1000) throw new Error('Series length must be between 3 and 1000');
 
   const y = series.map(v => Math.log1p(v));
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;

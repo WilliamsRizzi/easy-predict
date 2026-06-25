@@ -12,7 +12,7 @@ Request body (object form):
 {"series": [1.0, 2.3, 4.1, 6.8, 9.2], "context": "monthly revenue in USD"}
 ```
 
-- `series`: array of 3–10 finite numbers (required)
+- `series`: array of 3–1000 finite numbers (required)
 - `context`: plain-text description of what the series represents, max 200 chars (optional — helps select the best model)
 
 Response:
@@ -34,4 +34,4 @@ Response:
 - [POST /timeseries](https://easy-predict.com/timeseries): Predict the next value in a numeric series. Requires x402 v2 payment.
 - [GET /.well-known/x402](https://easy-predict.com/.well-known/x402): Machine-readable x402 v2 resource list and payment requirements.
 - [GET /openapi.json](https://easy-predict.com/openapi.json): Full OpenAPI 3.1 specification.
-- [GET /llms.txt](https://easy-predict.com/llms.txt): This document.
+- [GET /llm.txt](https://easy-predict.com/llm.txt): This document.

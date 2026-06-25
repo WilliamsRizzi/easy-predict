@@ -76,8 +76,8 @@ def predict_log1p(series: list) -> tuple[float, float, float]:
     """Log1p linear extrapolation: fit in log1p space, predict the next point."""
     arr = np.array(series, dtype=float)
     n = len(arr)
-    if n < 3 or n > 10:
-        raise ValueError('Series length must be between 3 and 10')
+    if n < 3 or n > 1000:
+        raise ValueError('Series length must be between 3 and 1000')
     y = np.log1p(arr)
     x = np.arange(n, dtype=float)
     slope, intercept = np.polyfit(x, y, 1)
@@ -156,10 +156,10 @@ def timeseries_post():
     return jsonify(result)
 
 
-@app.route('/llms.txt')
-def llms_txt():
-    """Serve the llms.txt document for LLM crawlers. Free, no payment."""
-    return send_from_directory(ROOT_DIR, 'llms.txt', mimetype='text/plain')
+@app.route('/llm.txt')
+def llm_txt():
+    """Serve the llm.txt document for LLM crawlers. Free, no payment."""
+    return send_from_directory(ROOT_DIR, 'llm.txt', mimetype='text/plain')
 
 
 @app.route('/openapi.json')

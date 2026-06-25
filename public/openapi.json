@@ -27,7 +27,7 @@
       },
       "post": {
         "summary": "Predict the next value in a numeric time series",
-        "description": "Accepts a JSON array or an object with a `series` key (3–10 numbers) and returns the next predicted value using log1p linear regression. The endpoint is gated by an x402 v2 micropayment; calling without a valid `PAYMENT-SIGNATURE` header returns HTTP 402 with the full payment terms.",
+        "description": "Accepts a JSON array or an object with a `series` key (3–1000 numbers) and returns the next predicted value using log1p linear regression. The endpoint is gated by an x402 v2 micropayment; calling without a valid `PAYMENT-SIGNATURE` header returns HTTP 402 with the full payment terms.",
         "security": [{ "x402": [] }],
         "parameters": [
           {
@@ -48,7 +48,7 @@
                     "type": "array",
                     "items": { "type": "number" },
                     "minItems": 3,
-                    "maxItems": 10,
+                    "maxItems": 1000,
                     "example": [1.0, 2.3, 4.1, 6.8, 9.2]
                   },
                   {
@@ -59,7 +59,7 @@
                         "type": "array",
                         "items": { "type": "number" },
                         "minItems": 3,
-                        "maxItems": 10,
+                        "maxItems": 1000,
                         "example": [1.0, 2.3, 4.1, 6.8, 9.2]
                       },
                       "context": {
@@ -101,7 +101,7 @@
               }
             }
           },
-          "400": { "description": "Invalid request — bad JSON, wrong type, or series outside 3–10 elements." },
+          "400": { "description": "Invalid request — bad JSON, wrong type, or series outside 3–1000 elements." },
           "402": {
             "description": "Payment Required — missing or invalid x402 v2 payment. Body and PAYMENT-REQUIRED header contain the payment terms.",
             "headers": {
