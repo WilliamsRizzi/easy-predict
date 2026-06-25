@@ -81,4 +81,4 @@ Response:
 - [POST /anomaly-detection](https://easy-predict.com/anomaly-detection): Detect anomalies in a numeric series via z-score. Requires x402 v2 payment.
 - [GET /.well-known/x402](https://easy-predict.com/.well-known/x402): Machine-readable x402 v2 resource list and payment requirements.
 - [GET /openapi.json](https://easy-predict.com/openapi.json): Full OpenAPI 3.1 specification.
-- [GET /llm.txt](https://easy-predict.com/llm.txt): This document.
+- [GET /llms.txt](https://easy-predict.com/llms.txt): This document.

@@ -376,6 +376,7 @@ export default {
 
     if (pathname === '/.well-known/x402') return handleWellKnownX402(baseUrl);
     if (pathname === '/favicon.ico' || pathname === '/favicon.svg') return handleFavicon();
+    if (pathname === '/llm.txt') return Response.redirect(`${baseUrl}/llms.txt`, 301);
 
     if ((pathname === '/timeseries' || pathname === '/anomaly-detection') && request.method === 'GET') {
       const accept = request.headers.get('Accept') ?? '';

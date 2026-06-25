@@ -2,7 +2,7 @@ import os
 import json
 import base64
 import numpy as np
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, redirect
 from anomaly_detection.app import blueprint as anomaly_detection_blueprint
 
 app = Flask(__name__)
@@ -240,10 +240,14 @@ def timeseries_post():
     return jsonify(result)
 
 
+@app.route('/llms.txt')
+def llms_txt():
+    return send_from_directory(ROOT_DIR, 'llms.txt', mimetype='text/plain')
+
+
 @app.route('/llm.txt')
-def llm_txt():
-    """Serve the llm.txt document for LLM crawlers. Free, no payment."""
-    return send_from_directory(ROOT_DIR, 'llm.txt', mimetype='text/plain')
+def llm_txt_redirect():
+    return redirect('/llms.txt', 301)
 
 
 @app.route('/openapi.json')
