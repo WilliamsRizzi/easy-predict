@@ -3,6 +3,14 @@ const X402_ASSET      = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const X402_AMOUNT     = '10000';
 const FACILITATOR_URL = 'https://x402.org/facilitator';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, PAYMENT-SIGNATURE, Payment-Signature, X-PAYMENT, X-Payment',
+  'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED',
+  'Access-Control-Max-Age': '86400',
+};
+
 export interface Env {
   ASSETS: Fetcher;
   RATE_LIMITER: RateLimit;
@@ -36,7 +44,7 @@ function paymentRequired(resourceUrl: string, error = 'Payment Required', descri
     headers: {
       'Content-Type': 'application/json',
       'PAYMENT-REQUIRED': btoa(JSON.stringify(body)),
-      'Access-Control-Expose-Headers': 'PAYMENT-REQUIRED',
+      ...CORS_HEADERS,
     },
   });
 }
@@ -164,13 +172,13 @@ async function handleAnomalyDetectionPost(
       if (typeof obj.context !== 'string') {
         return new Response(
           JSON.stringify({ error: "'context' must be a string" }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } },
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
         );
       }
       if (obj.context.length > 200) {
         return new Response(
           JSON.stringify({ error: "'context' must be 200 characters or fewer" }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } },
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
         );
       }
       context = obj.context;
@@ -179,7 +187,7 @@ async function handleAnomalyDetectionPost(
       if (typeof obj.threshold !== 'number' || !isFinite(obj.threshold)) {
         return new Response(
           JSON.stringify({ error: "'threshold' must be a number" }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } },
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
         );
       }
       threshold = obj.threshold;
@@ -189,14 +197,14 @@ async function handleAnomalyDetectionPost(
   if (!Array.isArray(series)) {
     return new Response(
       JSON.stringify({ error: "Provide a 'series' key with a number array, or send a bare JSON array" }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 
   if (!series.every(v => typeof v === 'number' && isFinite(v))) {
     return new Response(
       JSON.stringify({ error: 'All series values must be finite numbers' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 
@@ -205,11 +213,11 @@ async function handleAnomalyDetectionPost(
     ctx.waitUntil(settlePayment(paymentHeader));
     const body: Record<string, unknown> = { ...result };
     if (context !== undefined) body.context = context;
-    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 }
@@ -255,13 +263,13 @@ async function handleTimeseriesPost(
       if (typeof obj.context !== 'string') {
         return new Response(
           JSON.stringify({ error: "'context' must be a string" }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } },
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
         );
       }
       if (obj.context.length > 200) {
         return new Response(
           JSON.stringify({ error: "'context' must be 200 characters or fewer" }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } },
+          { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
         );
       }
       context = obj.context;
@@ -271,14 +279,14 @@ async function handleTimeseriesPost(
   if (!Array.isArray(series)) {
     return new Response(
       JSON.stringify({ error: "Provide a 'series' key with a number array, or send a bare JSON array" }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 
   if (!series.every(v => typeof v === 'number' && isFinite(v))) {
     return new Response(
       JSON.stringify({ error: 'All series values must be finite numbers' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 
@@ -289,12 +297,12 @@ async function handleTimeseriesPost(
     if (context !== undefined) result.context = context;
     return new Response(
       JSON.stringify(result),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
+      { status: 200, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+      { status: 400, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
     );
   }
 }
@@ -350,13 +358,17 @@ export default {
     const { pathname } = url;
     const baseUrl = url.origin;
 
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+
     if (pathname === '/timeseries' && request.method === 'POST') {
       const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
       const { success } = await env.RATE_LIMITER.limit({ key: ip });
       if (!success) {
         return new Response(JSON.stringify({ error: 'Too many requests' }), {
           status: 429,
-          headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '60', ...CORS_HEADERS },
         });
       }
       return handleTimeseriesPost(request, baseUrl, ctx);
@@ -368,7 +380,7 @@ export default {
       if (!success) {
         return new Response(JSON.stringify({ error: 'Too many requests' }), {
           status: 429,
-          headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '60', ...CORS_HEADERS },
         });
       }
       return handleAnomalyDetectionPost(request, baseUrl, ctx);
