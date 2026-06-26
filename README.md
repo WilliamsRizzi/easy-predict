@@ -1,78 +1,171 @@
 # easy-predict
 
-`easy-predict` is a lightweight Flask-based service for time series prediction. It exposes a simple endpoint to extrapolate the next value from a numeric series using a log1p linear regression model.
+Agent-first prediction and anomaly detection API. Send a list of numbers, get the next predicted value or a list of anomalous points. Paid per call via [x402](https://x402.org) v2 micropayments — $0.01 USDC on Base. No API keys, no accounts.
 
-## What this repo contains
+**Live at [easy-predict.com](https://easy-predict.com)**
 
-- `timeseries/app.py` — the Flask application implementing `/log1p` and `/timeseries/log1p`
-- `tests/test_app.py` — unit tests for prediction behavior, request validation, and rate limiting
-- `requirements.txt` / `pyproject.toml` — project dependencies and Python packaging metadata
+---
 
-## Try it live
+## Endpoints
 
-Visit **easy-predict.com** to see the project in action and test the prediction endpoint.
+| Method | Path | Cost | Description |
+|--------|------|------|-------------|
+| POST | `/timeseries` | $0.01 USDC | Predict the next value in a numeric series |
+| POST | `/anomaly-detection` | $0.01 USDC | Detect anomalies via z-score |
+| GET | `/.well-known/x402` | free | x402 v2 resource discovery |
+| GET | `/openapi.json` | free | OpenAPI 3.1 spec |
+| GET | `/llms.txt` | free | Human/agent-readable API docs |
 
-## Local usage
+### POST /timeseries
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Run the app:
-   ```bash
-   python timeseries/app.py
-   ```
-3. Send a POST request to:
-   - `http://localhost:8000/timeseries/log1p`
-   - `http://localhost:8000/log1p`
+```bash
+curl https://easy-predict.com/timeseries \
+  -H "Content-Type: application/json" \
+  -H "PAYMENT-SIGNATURE: <signed-x402-payload>" \
+  -d '{"series": [1.0, 2.3, 4.1, 6.8, 9.2], "context": "monthly revenue USD"}'
+```
 
-Required headers for POST requests:
-
-- `X-Agent-Type: ai`
-- `X-402-Cost: 0.001`
-- `X-PAYMENT: <x402 payload>` — a signed x402 payment, **or** `X-402: <token>` / `X-402-Facilitator: <token>` when `X402_TOKEN` is configured
-
-## x402 discovery
-
-The paid prediction endpoints are monetized with [x402](https://www.x402.org/).
-The service publishes two discovery documents so indexers (e.g. x402scan.com)
-can find and price the endpoints automatically:
-
-- `GET /openapi.json` — OpenAPI 3.1 document. Paid operations declare the
-  `x402` security scheme and an `x-payment-info` block; free operations declare
-  `"security": []`.
-- `GET /.well-known/x402` — machine-readable list of paid resources with their
-  x402 `PaymentRequirements`, plus a pointer to `/openapi.json`.
-
-Calling a paid endpoint without payment returns **HTTP 402** whose JSON body
-follows the x402 wire format:
+Response:
 
 ```json
 {
-  "x402Version": 1,
-  "error": "Payment Required: missing or invalid x402 payment",
-  "accepts": [
-    {
-      "scheme": "exact",
-      "network": "base",
-      "maxAmountRequired": "1000",
-      "resource": "https://easy-predict.com/timeseries/log1p",
-      "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
-      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      "maxTimeoutSeconds": 60,
-      "extra": { "name": "USD Coin", "version": "2" }
-    }
-  ],
-  "facilitator": "https://x402.org/facilitator"
+  "prediction": 12.1,
+  "method": "linear",
+  "holdout_errors": {"linear": 0.05, "log1p-linear": 0.31, "last-delta": 0.05, "mean": 3.5},
+  "slope": 1.94,
+  "intercept": 0.12
 }
 ```
 
-The same payload is echoed (base64) in the `X-Payment-Required` /
-`PAYMENT-REQUIRED` response headers.
+Model selection: holds out the last point, evaluates `linear`, `log1p-linear`, `last-delta`, and `mean` against it, retrains the winner on the full series.
 
-### Configuration
+### POST /anomaly-detection
 
-Payment terms default to Base mainnet USDC at $0.001 and are overridable via
-environment variables: `PAY_TO_ADDRESS`, `X402_NETWORK`, `X402_ASSET`,
-`X402_ASSET_NAME`, `X402_PRICE_USD`, `X402_MAX_AMOUNT_REQUIRED`,
-`X402_MAX_TIMEOUT_SECONDS`, and `X402_FACILITATOR_URL`.
+```bash
+curl https://easy-predict.com/anomaly-detection \
+  -H "Content-Type: application/json" \
+  -H "PAYMENT-SIGNATURE: <signed-x402-payload>" \
+  -d '{"series": [1.0, 2.3, 4.1, 6.8, 99.0], "threshold": 2.0}'
+```
+
+Response:
+
+```json
+{
+  "anomalies": [{"index": 4, "value": 99.0, "z_score": 2.14}],
+  "method": "z-score",
+  "mean": 15.12,
+  "std": 39.18,
+  "threshold": 2.0
+}
+```
+
+Both endpoints accept an optional `"context"` string (max 200 chars) echoed back in the response.
+
+---
+
+## x402 payment flow
+
+Omit the payment header to get a 402 with the full payment terms:
+
+```json
+{
+  "x402Version": 2,
+  "error": "Payment Required",
+  "accepts": [{
+    "scheme": "exact",
+    "network": "eip155:8453",
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "amount": "10000",
+    "payTo": "0xc99b83818c8865340AC55C45554f377f41c68DBC",
+    "maxTimeoutSeconds": 60
+  }]
+}
+```
+
+1. Parse `accepts[0]` from the 402 response
+2. Sign a payment payload with your wallet
+3. Base64-encode the signed JSON and retry with `PAYMENT-SIGNATURE: <encoded>`
+4. The Cloudflare Worker verifies via `https://x402.org/facilitator` and settles on-chain
+
+Payment: 10000 atomic units = $0.01 USDC (6 decimals) on Base mainnet.
+
+---
+
+## Agent integration
+
+A working Claude agent that handles the full 402 → sign → retry loop autonomously:
+
+```bash
+pip install anthropic requests eth-account
+ANTHROPIC_API_KEY=sk-... WALLET_PRIVATE_KEY=0x... python examples/demo_agent.py
+```
+
+[`examples/demo_agent.py`](examples/demo_agent.py) — uses Anthropic tool use. The same pattern works with LangChain, LlamaIndex, CrewAI, or AutoGen.
+
+Demo mode (no wallet, against local server):
+
+```bash
+cd timeseries && python app.py &
+ANTHROPIC_API_KEY=sk-... python examples/demo_agent.py
+```
+
+---
+
+## Architecture
+
+- **Cloudflare Worker** (`src/index.ts`) — edge runtime, rate limiting, full x402 verify+settle via the facilitator
+- **Flask backend** (`timeseries/app.py`) — Python prediction logic, local dev server
+- **Static assets** (`public/`) — splash page, `openapi.json`, `llms.txt`
+
+The Worker handles all production traffic. The Flask app is used for local development and runs on port 8000.
+
+---
+
+## Local development
+
+```bash
+pip install -r requirements.txt
+cd timeseries && python app.py        # Flask on http://localhost:8000
+```
+
+The local Flask server uses presence-only payment checking — any non-empty `PAYMENT-SIGNATURE` header is accepted. Useful for testing without a real wallet.
+
+For the Cloudflare Worker:
+
+```bash
+npm install
+npx wrangler dev                      # Worker on http://localhost:8787
+```
+
+---
+
+## Repo structure
+
+```
+timeseries/app.py          Flask backend (prediction + anomaly detection logic)
+anomaly_detection/app.py   Anomaly detection blueprint
+src/index.ts               Cloudflare Worker (edge runtime)
+public/
+  index.html               Splash page
+  openapi.json             OpenAPI 3.1 spec
+  llms.txt                 Human/agent-readable docs
+examples/
+  demo_agent.py            Claude agent integration demo with x402 payments
+tests/                     Test suite
+```
+
+---
+
+## Configuration
+
+Flask backend env vars (all optional):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PAY_TO_ADDRESS` | `0xc99b...` | Recipient wallet |
+| `X402_ASSET` | USDC on Base | ERC-20 asset address |
+| `X402_NETWORK` | `eip155:8453` | Chain ID |
+| `X402_MAX_AMOUNT` | `10000` | Atomic units ($0.01) |
+| `FACILITATOR_URL` | `https://x402.org/facilitator` | x402 facilitator |
+| `PUBLIC_BASE_URL` | `https://easy-predict.com` | Base URL for resource URLs in 402 responses |

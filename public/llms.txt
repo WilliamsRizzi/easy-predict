@@ -75,6 +75,21 @@ Response:
 - Facilitator: https://x402.org/facilitator
 - Header: `PAYMENT-SIGNATURE: <base64-encoded signed x402 v2 PaymentPayload JSON>`
 
+## Agent integration example
+
+A working Claude agent that calls both endpoints and pays autonomously via x402 is available at:
+
+https://github.com/rizzi-williams/easy-predict/blob/main/examples/demo_agent.py
+
+The agent uses the Anthropic Python SDK with tool use. When a tool call hits a 402, it parses the payment challenge, signs a payment payload, and retries with the `PAYMENT-SIGNATURE` header — no human in the loop. The same pattern works in any agentic framework that supports custom tool implementations (LangChain, LlamaIndex, CrewAI, AutoGen, etc.).
+
+```python
+pip install anthropic requests eth-account
+ANTHROPIC_API_KEY=... WALLET_PRIVATE_KEY=... python examples/demo_agent.py
+```
+
+---
+
 ## Endpoints
 
 - [POST /timeseries](https://easy-predict.com/timeseries): Predict the next value in a numeric series using automatic model selection (linear, log1p-linear, last-delta, mean). Requires x402 v2 payment.

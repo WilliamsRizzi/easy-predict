@@ -241,6 +241,30 @@
     .step-text { font-size: 14px; color: var(--muted); padding-top: 4px; }
     .step-text strong { color: var(--text); }
 
+    /* ── Agent example card ── */
+    .agent-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .agent-card-header { display: flex; align-items: center; gap: 12px; }
+    .agent-card-title { font-size: 16px; font-weight: 700; color: var(--text); }
+    .agent-card-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .agent-links { display: flex; gap: 12px; flex-wrap: wrap; }
+    .agent-link {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .agent-link::before { content: '↗'; font-size: 10px; }
+
     /* ── Discovery cards ── */
     .discovery-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 540px) { .discovery-grid { grid-template-columns: 1fr; } }
@@ -454,6 +478,32 @@
         <div class="step">
           <div class="step-num">4</div>
           <div class="step-text"><strong>You get the result.</strong> HTTP 200 with <code>prediction</code> (timeseries) or <code>anomalies</code> (anomaly-detection).</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Agent integration example</h2>
+      <div class="agent-card">
+        <div class="agent-card-header">
+          <div>
+            <div class="agent-card-title">Claude agent with autonomous x402 payments</div>
+          </div>
+        </div>
+        <p class="agent-card-desc">
+          A working Python agent that receives a natural-language forecasting task, calls this API,
+          handles the 402 challenge, signs a $0.01 USDC payment on Base, and reports the result —
+          all autonomously. Uses the Anthropic SDK with tool use. The same pattern works in
+          LangChain, LlamaIndex, CrewAI, AutoGen, or any framework that supports custom tool implementations.
+        </p>
+        <pre style="font-size:12px;margin:0"><span class="token-comment"># install</span>
+pip install anthropic requests eth-account
+
+<span class="token-comment"># run (live payments)</span>
+ANTHROPIC_API_KEY=sk-... WALLET_PRIVATE_KEY=0x... python demo_agent.py</pre>
+        <div class="agent-links">
+          <a class="agent-link" href="https://github.com/WilliamsRizzi/easy-predict/blob/main/examples/demo_agent.py">View on GitHub</a>
+          <a class="agent-link" href="/llms.txt">llms.txt</a>
         </div>
       </div>
     </section>
