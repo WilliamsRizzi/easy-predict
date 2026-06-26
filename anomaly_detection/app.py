@@ -81,7 +81,18 @@ def detect_anomalies(series: list, threshold: float = 2.0) -> dict:
             {'index': int(i), 'value': float(arr[i]), 'z_score': round(float(z_scores[i]), 6)}
             for i in range(n) if abs(z_scores[i]) > threshold
         ]
-    return {'anomalies': anomalies, 'method': 'z-score', 'mean': mean, 'std': std, 'threshold': threshold}
+    normal_range = {
+        'lower': round(mean - threshold * std, 6),
+        'upper': round(mean + threshold * std, 6),
+    }
+    return {
+        'anomalies': anomalies,
+        'method': 'z-score',
+        'mean': mean,
+        'std': std,
+        'threshold': threshold,
+        'normal_range': normal_range,
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -33,6 +33,9 @@ def test_predict_next_linear_series():
     assert abs(result['prediction'] - 12.0) < 0.01
     assert 'holdout_errors' in result
     assert len(result['holdout_errors']) >= 3
+    ci = result['confidence_interval']
+    assert ci['lower'] - 1e-9 <= result['prediction'] <= ci['upper'] + 1e-9
+    assert ci['level'] == 0.95
 
 def test_predict_next_stationary_series():
     # Constant series — all models tie at 0 error; prediction must be ~5
@@ -144,6 +147,10 @@ def test_paid_object_body(client):
     assert 'method' in data
     assert data['method'] in ('linear', 'log1p-linear', 'last-delta', 'mean')
     assert 'holdout_errors' in data
+    assert 'confidence_interval' in data
+    ci = data['confidence_interval']
+    assert ci['lower'] - 1e-9 <= data['prediction'] <= ci['upper'] + 1e-9
+    assert ci['level'] == 0.95
 
 def test_paid_array_body(client):
     resp = client.post('/timeseries',
@@ -190,6 +197,10 @@ def test_detect_anomalies_valid():
     assert result['method'] == 'z-score'
     assert len(result['anomalies']) > 0
     assert result['anomalies'][0]['index'] == 5
+    nr = result['normal_range']
+    assert nr['lower'] <= nr['upper']
+    assert nr['lower'] == round(result['mean'] - result['threshold'] * result['std'], 6)
+    assert nr['upper'] == round(result['mean'] + result['threshold'] * result['std'], 6)
 
 def test_detect_anomalies_no_anomalies():
     result = detect_anomalies([1, 2, 3, 4, 5])
@@ -235,6 +246,9 @@ def test_anomaly_paid_array_body(client):
     assert 'mean' in data
     assert 'std' in data
     assert 'threshold' in data
+    assert 'normal_range' in data
+    nr = data['normal_range']
+    assert nr['lower'] <= nr['upper']
 
 def test_anomaly_paid_object_body(client):
     resp = client.post('/anomaly-detection',

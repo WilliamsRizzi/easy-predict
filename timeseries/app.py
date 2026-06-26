@@ -87,6 +87,68 @@ def predict_log1p(series: list) -> tuple[float, float, float]:
     return prediction, float(slope), float(intercept)
 
 
+def _t_quantile_975(df: int) -> float:
+    """97.5th percentile of Student's t for two-tailed 95% CI."""
+    _table = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+              6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+              11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131,
+              16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086,
+              21: 2.080, 22: 2.074, 23: 2.069, 24: 2.064, 25: 2.060,
+              26: 2.056, 27: 2.052, 28: 2.048, 29: 2.045}
+    return _table.get(df, 1.96)
+
+
+def _prediction_interval(method: str, prediction: float, arr: np.ndarray) -> dict:
+    """95% prediction interval for the next value, given the winning model and full series."""
+    n = len(arr)
+    try:
+        if method == 'linear':
+            x = np.arange(n, dtype=float)
+            sl, ic = np.polyfit(x, arr, 1)
+            residuals = arr - (sl * x + ic)
+            rmse = float(np.sqrt(np.mean(residuals ** 2)))
+            x_mean = float(np.mean(x))
+            S_xx = float(np.sum((x - x_mean) ** 2))
+            se = rmse * np.sqrt(1 + 1/n + (float(n) - x_mean) ** 2 / S_xx)
+            t = _t_quantile_975(n - 2)
+            return {'lower': round(prediction - t * se, 6),
+                    'upper': round(prediction + t * se, 6),
+                    'level': 0.95}
+
+        if method == 'log1p-linear':
+            x = np.arange(n, dtype=float)
+            log_arr = np.log1p(arr)
+            sl, ic = np.polyfit(x, log_arr, 1)
+            residuals_log = log_arr - (sl * x + ic)
+            rmse_log = float(np.sqrt(np.mean(residuals_log ** 2)))
+            x_mean = float(np.mean(x))
+            S_xx = float(np.sum((x - x_mean) ** 2))
+            se_log = rmse_log * np.sqrt(1 + 1/n + (float(n) - x_mean) ** 2 / S_xx)
+            t = _t_quantile_975(n - 2)
+            log_pred = sl * float(n) + ic
+            return {'lower': round(float(np.expm1(log_pred - t * se_log)), 6),
+                    'upper': round(float(np.expm1(log_pred + t * se_log)), 6),
+                    'level': 0.95}
+
+        if method == 'last-delta':
+            diffs = np.diff(arr)
+            se = float(np.std(diffs, ddof=1)) if len(diffs) > 1 else 0.0
+            t = _t_quantile_975(max(len(diffs) - 1, 1))
+            return {'lower': round(prediction - t * se, 6),
+                    'upper': round(prediction + t * se, 6),
+                    'level': 0.95}
+
+        if method == 'mean':
+            se = float(np.std(arr, ddof=1)) * float(np.sqrt(1 + 1/n))
+            t = _t_quantile_975(n - 1)
+            return {'lower': round(prediction - t * se, 6),
+                    'upper': round(prediction + t * se, 6),
+                    'level': 0.95}
+    except Exception:
+        pass
+    return {'lower': round(prediction, 6), 'upper': round(prediction, 6), 'level': 0.95}
+
+
 def predict_next(series: list) -> dict:
     """Model-selection prediction.
 
@@ -167,6 +229,7 @@ def predict_next(series: list) -> dict:
         'prediction': winner['prediction'],
         'method': winner_name,
         'holdout_errors': {k: round(v['holdout_error'], 6) for k, v in candidates.items()},
+        'confidence_interval': _prediction_interval(winner_name, winner['prediction'], arr),
     }
     if 'slope' in winner:
         result['slope'] = winner['slope']

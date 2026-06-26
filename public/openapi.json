@@ -88,6 +88,16 @@
                     "prediction":     { "type": "number", "description": "Predicted next value." },
                     "method":         { "type": "string", "enum": ["linear", "log1p-linear", "last-delta", "mean"], "description": "Model selected by holdout evaluation." },
                     "holdout_errors": { "type": "object", "description": "Absolute error of each candidate model on the held-out last point.", "additionalProperties": { "type": "number" } },
+                    "confidence_interval": {
+                      "type": "object",
+                      "description": "95% prediction interval for the next value.",
+                      "required": ["lower", "upper", "level"],
+                      "properties": {
+                        "lower": { "type": "number", "description": "Lower bound of the 95% prediction interval." },
+                        "upper": { "type": "number", "description": "Upper bound of the 95% prediction interval." },
+                        "level": { "type": "number", "description": "Confidence level (always 0.95).", "example": 0.95 }
+                      }
+                    },
                     "slope":          { "type": "number", "description": "Regression slope (present when method is linear or log1p-linear)." },
                     "intercept":      { "type": "number", "description": "Regression intercept (present when method is linear or log1p-linear)." },
                     "context":        { "type": "string", "description": "Echoed back from the request if provided." }
@@ -97,6 +107,7 @@
                   "prediction": 12.1,
                   "method": "linear",
                   "holdout_errors": { "linear": 0.05, "log1p-linear": 0.31, "last-delta": 0.05, "mean": 3.5 },
+                  "confidence_interval": { "lower": 10.2, "upper": 14.0, "level": 0.95 },
                   "slope": 1.94,
                   "intercept": 0.12,
                   "context": "monthly revenue in USD"
@@ -240,6 +251,15 @@
                     "mean":      { "type": "number", "description": "Sample mean of the series." },
                     "std":       { "type": "number", "description": "Sample standard deviation (ddof=1)." },
                     "threshold": { "type": "number", "description": "The z-score cutoff used." },
+                    "normal_range": {
+                      "type": "object",
+                      "description": "Range of values considered non-anomalous: [mean − threshold×std, mean + threshold×std].",
+                      "required": ["lower", "upper"],
+                      "properties": {
+                        "lower": { "type": "number", "description": "Lower bound of the normal range." },
+                        "upper": { "type": "number", "description": "Upper bound of the normal range." }
+                      }
+                    },
                     "context":   { "type": "string", "description": "Echoed back from the request if provided." }
                   }
                 },
@@ -249,6 +269,7 @@
                   "mean": 15.12,
                   "std": 39.18,
                   "threshold": 2.0,
+                  "normal_range": { "lower": -63.24, "upper": 93.48 },
                   "context": "cpu usage %"
                 }
               }
