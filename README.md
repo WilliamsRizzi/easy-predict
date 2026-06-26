@@ -1,5 +1,7 @@
 # easy-predict
 
+<!-- mcp-name: io.github.williamsrizzi/easy-predict -->
+
 Agent-first prediction and anomaly detection API. Send a list of numbers, get the next predicted value or a list of anomalous points. Paid per call via [x402](https://x402.org) v2 micropayments — $0.01 USDC on Base. No API keys, no accounts.
 
 **Live at [easy-predict.com](https://easy-predict.com)**
@@ -113,8 +115,6 @@ Add to your MCP client config:
 ```
 
 Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it calls the tool, pays $0.01 USDC from your wallet automatically, and returns the forecast.
-
-Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
 
 Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
 
