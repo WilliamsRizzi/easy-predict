@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "easy-predict-mcp"
+version = "1.0.0"
+description = "MCP server for easy-predict.com — time series prediction and anomaly detection with automatic x402 micropayments on Base."
+readme = "../README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "WilliamsRizzi" }]
+keywords = ["mcp", "prediction", "anomaly-detection", "x402", "base", "usdc"]
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "requests>=2.32.0",
+    "eth-account>=0.13.0",
+]
+
+[project.urls]
+Homepage = "https://easy-predict.com"
+Repository = "https://github.com/WilliamsRizzi/easy-predict"
+
+[project.scripts]
+easy-predict-mcp = "easy_predict_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["easy_predict_mcp"]

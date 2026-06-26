@@ -94,15 +94,18 @@ Payment: 10000 atomic units = $0.01 USDC (6 decimals) on Base mainnet.
 
 ## MCP server (Claude Desktop, Cursor, Windsurf)
 
-The MCP server is hosted on Cloudflare at `https://easy-predict.com/mcp`. Each user pays from their own wallet — add your wallet key as a Bearer token in your MCP client config:
+The MCP server runs locally on your machine. Your wallet private key never leaves your device — it signs the x402 payment locally and only the signed header is sent to easy-predict.com.
+
+Add to your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "easy-predict": {
-      "url": "https://easy-predict.com/mcp",
-      "headers": {
-        "Authorization": "Bearer 0xYOUR_WALLET_PRIVATE_KEY"
+      "command": "uvx",
+      "args": ["easy-predict-mcp"],
+      "env": {
+        "WALLET_PRIVATE_KEY": "0xYOUR_WALLET_PRIVATE_KEY"
       }
     }
   }
@@ -110,6 +113,8 @@ The MCP server is hosted on Cloudflare at `https://easy-predict.com/mcp`. Each u
 ```
 
 Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it calls the tool, pays $0.01 USDC from your wallet automatically, and returns the forecast.
+
+Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
 
 Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
 
@@ -166,18 +171,19 @@ npx wrangler dev                      # Worker on http://localhost:8787
 ## Repo structure
 
 ```
-timeseries/app.py          Flask backend (prediction + anomaly detection logic)
-anomaly_detection/app.py   Anomaly detection blueprint
-src/index.ts               Cloudflare Worker entry point
-src/mcp.ts                 MCP server handler (served at /mcp)
-smithery.yaml              Smithery registry config
+timeseries/app.py                        Flask backend (prediction + anomaly detection logic)
+anomaly_detection/app.py                 Anomaly detection blueprint
+src/index.ts                             Cloudflare Worker (edge runtime)
+mcp_server/easy_predict_mcp/server.py   MCP server — runs locally, signs payments on device
+mcp_server/pyproject.toml               PyPI package definition (easy-predict-mcp)
+smithery.yaml                            Smithery registry config
 public/
-  index.html               Splash page
-  openapi.json             OpenAPI 3.1 spec
-  llms.txt                 Human/agent-readable docs
+  index.html                             Splash page
+  openapi.json                           OpenAPI 3.1 spec
+  llms.txt                               Human/agent-readable docs
 examples/
-  demo_agent.py            Claude agent integration demo with x402 payments
-tests/                     Test suite
+  demo_agent.py                          Claude agent integration demo with x402 payments
+tests/                                   Test suite
 ```
 
 ---

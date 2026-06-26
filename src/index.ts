@@ -1,5 +1,3 @@
-import { handleMcpRequest } from './mcp';
-
 const PAY_TO_ADDRESS  = '0xc99b83818c8865340AC55C45554f377f41c68DBC';
 const X402_ASSET      = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const X402_AMOUNT     = '10000';
@@ -8,7 +6,6 @@ const FACILITATOR_URL = 'https://x402.org/facilitator';
 export interface Env {
   ASSETS: Fetcher;
   RATE_LIMITER: RateLimit;
-  WALLET_PRIVATE_KEY?: string;
 }
 
 function paymentRequirements() {
@@ -377,7 +374,6 @@ export default {
       return handleAnomalyDetectionPost(request, baseUrl, ctx);
     }
 
-    if (pathname === '/mcp') return handleMcpRequest(request, env.WALLET_PRIVATE_KEY, baseUrl);
     if (pathname === '/.well-known/x402') return handleWellKnownX402(baseUrl);
     if (pathname === '/favicon.ico' || pathname === '/favicon.svg') return handleFavicon();
     if (pathname === '/llm.txt') return Response.redirect(`${baseUrl}/llms.txt`, 301);
