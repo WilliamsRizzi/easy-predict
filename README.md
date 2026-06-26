@@ -94,21 +94,22 @@ Payment: 10000 atomic units = $0.01 USDC (6 decimals) on Base mainnet.
 
 ## MCP server (Claude Desktop, Cursor, Windsurf)
 
-The MCP server is hosted on Cloudflare at `https://easy-predict.com/mcp`. Add it to your MCP client config:
+The MCP server is hosted on Cloudflare at `https://easy-predict.com/mcp`. Each user pays from their own wallet — add your wallet key as a Bearer token in your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "easy-predict": {
-      "url": "https://easy-predict.com/mcp"
+      "url": "https://easy-predict.com/mcp",
+      "headers": {
+        "Authorization": "Bearer 0xYOUR_WALLET_PRIVATE_KEY"
+      }
     }
   }
 }
 ```
 
-Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it calls the tool, pays $0.01 USDC from the configured wallet automatically, and returns the forecast.
-
-To use your own wallet, set `WALLET_PRIVATE_KEY` via `wrangler secret put WALLET_PRIVATE_KEY` if you self-host.
+Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it calls the tool, pays $0.01 USDC from your wallet automatically, and returns the forecast.
 
 Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
 

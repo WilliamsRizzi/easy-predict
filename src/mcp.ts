@@ -18,9 +18,15 @@ function err(id: string | number | null, code: number, message: string): Respons
   return json({ jsonrpc: '2.0', id, error: { code, message } });
 }
 
+const CORS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Wallet-Key',
+};
+
 function json(body: unknown): Response {
   return new Response(JSON.stringify(body), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS },
   });
 }
 
@@ -167,15 +173,23 @@ async function callWithPayment(
 
 // ── MCP request handler ────────────────────────────────────────────────────────
 
-export async function handleMcpRequest(request: Request, walletKey: string | undefined, baseUrl: string): Promise<Response> {
+export async function handleMcpRequest(request: Request, fallbackWalletKey: string | undefined, baseUrl: string): Promise<Response> {
+  // Prefer wallet key from the request header so each user pays from their own wallet.
+  // Falls back to the operator's env-var key if no header is present.
+  const authHeader = request.headers.get('Authorization') ?? request.headers.get('X-Wallet-Key') ?? '';
+  const walletKey  = authHeader.replace(/^Bearer\s+/i, '').trim() || fallbackWalletKey;
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+
   if (request.method === 'GET') {
     return new Response(JSON.stringify({ name: 'easy-predict', version: '1.0.0', tools: TOOLS.map(t => t.name) }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...CORS },
     });
   }
 
   if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+    return new Response('Method Not Allowed', { status: 405, headers: CORS });
   }
 
   let rpc: RpcRequest;
@@ -199,7 +213,8 @@ export async function handleMcpRequest(request: Request, walletKey: string | und
   }
 
   if (method === 'notifications/initialized') {
-    return new Response(null, { status: 204 });
+    // Notifications have no id; if a client sends one with an id, ack it.
+    return id != null ? ok(id, {}) : new Response(null, { status: 204, headers: CORS });
   }
 
   if (method === 'tools/list') {
@@ -209,7 +224,7 @@ export async function handleMcpRequest(request: Request, walletKey: string | und
   if (method === 'tools/call') {
     if (!walletKey) {
       return ok(id, {
-        content: [{ type: 'text', text: 'Error: WALLET_PRIVATE_KEY is not configured. Add it as a Cloudflare secret: wrangler secret put WALLET_PRIVATE_KEY' }],
+        content: [{ type: 'text', text: 'Error: No wallet key provided. Add your Base wallet private key as an Authorization header: Authorization: Bearer 0xYOUR_PRIVATE_KEY' }],
         isError: true,
       });
     }
