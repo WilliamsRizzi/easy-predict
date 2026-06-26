@@ -92,7 +92,31 @@ Payment: 10000 atomic units = $0.01 USDC (6 decimals) on Base mainnet.
 
 ---
 
-## Agent integration
+## MCP server (Claude Desktop, Cursor, Windsurf)
+
+Add to your `claude_desktop_config.json` (or equivalent MCP client config):
+
+```json
+{
+  "mcpServers": {
+    "easy-predict": {
+      "command": "python",
+      "args": ["mcp_server/server.py"],
+      "env": {
+        "WALLET_PRIVATE_KEY": "0x..."
+      }
+    }
+  }
+}
+```
+
+Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it will call the tool, pay $0.01 USDC automatically, and return the forecast.
+
+Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
+
+---
+
+## Agent integration (Python)
 
 A working Claude agent that handles the full 402 → sign → retry loop autonomously:
 
@@ -146,6 +170,8 @@ npx wrangler dev                      # Worker on http://localhost:8787
 timeseries/app.py          Flask backend (prediction + anomaly detection logic)
 anomaly_detection/app.py   Anomaly detection blueprint
 src/index.ts               Cloudflare Worker (edge runtime)
+mcp_server/server.py       MCP server (FastMCP, stdio transport)
+smithery.yaml              Smithery registry config
 public/
   index.html               Splash page
   openapi.json             OpenAPI 3.1 spec

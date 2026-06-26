@@ -1,0 +1,31 @@
+name: easy-predict
+description: >
+  Predict the next value in a numeric time series or detect anomalies via z-score.
+  Paid per-call at $0.01 USDC on Base using x402 v2 micropayments —
+  no API keys, no subscriptions, no accounts.
+version: 1.0.0
+homepage: https://easy-predict.com
+license: MIT
+
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      walletPrivateKey:
+        type: string
+        title: Wallet Private Key
+        description: >
+          Hex private key of a Base (eip155:8453) wallet holding USDC.
+          Each tool call costs $0.01 USDC paid automatically via x402.
+        x-sensitive: true
+    required:
+      - walletPrivateKey
+  commandFunction: |-
+    (config) => ({
+      command: "python",
+      args: ["mcp_server/server.py"],
+      env: {
+        WALLET_PRIVATE_KEY: config.walletPrivateKey
+      }
+    })
