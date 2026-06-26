@@ -4,7 +4,9 @@ import time
 import base64
 import secrets
 import requests
+from pydantic import BaseModel, ConfigDict
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 API_BASE    = os.environ.get("EASY_PREDICT_URL", "https://easy-predict.com").rstrip("/")
 PRIVATE_KEY = os.environ.get("WALLET_PRIVATE_KEY")
@@ -20,12 +22,32 @@ mcp = FastMCP(
 )
 
 
+class PredictionResult(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    prediction: float
+    method: str
+    slope: float | None = None
+    intercept: float | None = None
+
+
+class AnomalyPoint(BaseModel):
+    index: int
+    value: float
+    z_score: float
+
+
+class AnomalyResult(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    anomalies: list[AnomalyPoint]
+    method: str
+    mean: float
+    std: float
+    threshold: float
+
+
 def _call_with_payment(url: str, body: dict) -> dict:
-    """
-    POST to an x402-gated endpoint.
-    Signs the payment locally — the private key never leaves this process.
-    Only the signed payment header is sent to the remote server.
-    """
     if not PRIVATE_KEY:
         raise ValueError(
             "WALLET_PRIVATE_KEY is not set. "
@@ -36,10 +58,7 @@ def _call_with_payment(url: str, body: dict) -> dict:
         from eth_account import Account
         from eth_account.messages import encode_defunct
     except ImportError:
-        raise RuntimeError(
-            "eth-account is not installed. "
-            "Reinstall the package: pip install easy-predict-mcp"
-        )
+        raise RuntimeError("eth-account is not installed. Reinstall: pip install easy-predict-mcp")
 
     resp = requests.post(url, json=body)
     if resp.status_code == 200:
@@ -76,8 +95,15 @@ def _call_with_payment(url: str, body: dict) -> dict:
     return resp.json()
 
 
-@mcp.tool()
-def predict_timeseries(series: list[float], context: str = "") -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+def predict_timeseries(series: list[float], context: str = "") -> PredictionResult:
     """
     Predict the next value in a numeric time series.
 
@@ -92,11 +118,18 @@ def predict_timeseries(series: list[float], context: str = "") -> str:
     body: dict = {"series": series}
     if context:
         body["context"] = context[:200]
-    return json.dumps(_call_with_payment(f"{API_BASE}/timeseries", body))
+    return PredictionResult.model_validate(_call_with_payment(f"{API_BASE}/timeseries", body))
 
 
-@mcp.tool()
-def detect_anomalies(series: list[float], threshold: float = 2.0, context: str = "") -> str:
+@mcp.tool(
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=True,
+    )
+)
+def detect_anomalies(series: list[float], threshold: float = 2.0, context: str = "") -> AnomalyResult:
     """
     Detect anomalies in a numeric time series using z-score analysis.
 
@@ -111,7 +144,7 @@ def detect_anomalies(series: list[float], threshold: float = 2.0, context: str =
     body: dict = {"series": series, "threshold": threshold}
     if context:
         body["context"] = context[:200]
-    return json.dumps(_call_with_payment(f"{API_BASE}/anomaly-detection", body))
+    return AnomalyResult.model_validate(_call_with_payment(f"{API_BASE}/anomaly-detection", body))
 
 
 def main() -> None:
