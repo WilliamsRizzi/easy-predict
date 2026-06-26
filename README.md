@@ -94,23 +94,21 @@ Payment: 10000 atomic units = $0.01 USDC (6 decimals) on Base mainnet.
 
 ## MCP server (Claude Desktop, Cursor, Windsurf)
 
-Add to your `claude_desktop_config.json` (or equivalent MCP client config):
+The MCP server is hosted on Cloudflare at `https://easy-predict.com/mcp`. Add it to your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "easy-predict": {
-      "command": "python",
-      "args": ["mcp_server/server.py"],
-      "env": {
-        "WALLET_PRIVATE_KEY": "0x..."
-      }
+      "url": "https://easy-predict.com/mcp"
     }
   }
 }
 ```
 
-Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it will call the tool, pay $0.01 USDC automatically, and return the forecast.
+Then ask Claude: *"Predict the next value for this series: 1.2, 2.4, 4.1, 6.8"* — it calls the tool, pays $0.01 USDC from the configured wallet automatically, and returns the forecast.
+
+To use your own wallet, set `WALLET_PRIVATE_KEY` via `wrangler secret put WALLET_PRIVATE_KEY` if you self-host.
 
 Listed on [Smithery](https://smithery.ai) — search `easy-predict` to install with one click.
 
@@ -169,8 +167,8 @@ npx wrangler dev                      # Worker on http://localhost:8787
 ```
 timeseries/app.py          Flask backend (prediction + anomaly detection logic)
 anomaly_detection/app.py   Anomaly detection blueprint
-src/index.ts               Cloudflare Worker (edge runtime)
-mcp_server/server.py       MCP server (FastMCP, stdio transport)
+src/index.ts               Cloudflare Worker entry point
+src/mcp.ts                 MCP server handler (served at /mcp)
 smithery.yaml              Smithery registry config
 public/
   index.html               Splash page

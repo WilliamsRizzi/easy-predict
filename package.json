@@ -11,5 +11,10 @@
     "@cloudflare/workers-types": "^4.0.0",
     "typescript": "^5.0.0",
     "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "@noble/curves": "^2.2.0",
+    "@noble/hashes": "^2.2.0",
+    "@noble/secp256k1": "^1.7.1"
   }
 }
