@@ -352,6 +352,172 @@ function handleFavicon(): Response {
   });
 }
 
+const MCP_TOOLS = [
+  {
+    name: 'predict_timeseries',
+    description:
+      'Predict the next value in a numeric time series. Costs $0.01 USDC on Base via x402. ' +
+      'Omit payment_signature to receive the payment challenge; sign it and call again to execute.',
+    inputSchema: {
+      type: 'object',
+      required: ['series'],
+      properties: {
+        series: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 1000, description: 'Numbers ordered oldest to newest.' },
+        context: { type: 'string', maxLength: 200, description: 'What the series represents, e.g. "monthly revenue USD".' },
+        payment_signature: { type: 'string', description: 'Base64-encoded signed x402 v2 payment payload. Omit to receive payment requirements.' },
+      },
+    },
+  },
+  {
+    name: 'detect_anomalies',
+    description:
+      'Detect anomalies in a numeric series using z-score analysis. Costs $0.01 USDC on Base via x402. ' +
+      'Omit payment_signature to receive the payment challenge; sign it and call again to execute.',
+    inputSchema: {
+      type: 'object',
+      required: ['series'],
+      properties: {
+        series: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 1000, description: 'Numbers to analyze.' },
+        threshold: { type: 'number', default: 2.0, exclusiveMinimum: 0, maximum: 10, description: 'Z-score cutoff (default 2.0). Lower = more sensitive.' },
+        context: { type: 'string', maxLength: 200, description: 'What the series represents, e.g. "cpu usage %".' },
+        payment_signature: { type: 'string', description: 'Base64-encoded signed x402 v2 payment payload. Omit to receive payment requirements.' },
+      },
+    },
+  },
+];
+
+function mcpResult(id: unknown, result: unknown): Response {
+  return new Response(
+    JSON.stringify({ jsonrpc: '2.0', id, result }),
+    { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
+  );
+}
+
+function mcpRpcError(id: unknown, code: number, message: string): Response {
+  return new Response(
+    JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }),
+    { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } },
+  );
+}
+
+async function handleMCPPost(
+  request: Request,
+  baseUrl: string,
+  env: Env,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return mcpRpcError(null, -32700, 'Parse error');
+  }
+
+  const msg = body as Record<string, unknown>;
+
+  // JSON-RPC notifications have no id — acknowledge and return
+  if (!('id' in msg)) {
+    return new Response(null, { status: 202, headers: CORS_HEADERS });
+  }
+
+  const { id, method, params } = msg as { id: unknown; method: string; params?: Record<string, unknown> };
+
+  if (method === 'initialize') {
+    return mcpResult(id, {
+      protocolVersion: (params?.protocolVersion as string | undefined) ?? '2024-11-05',
+      serverInfo: { name: 'easy-predict', version: '1.0.1' },
+      capabilities: { tools: {} },
+      instructions: [
+        'easy-predict: time series prediction and anomaly detection.',
+        'Each tool call costs $0.01 USDC on Base via x402 micropayments.',
+        '',
+        'Programmatic use: omit payment_signature to receive the x402 challenge,',
+        'sign it with your EVM wallet (EIP-191), then call again with payment_signature.',
+        '',
+        'End users (Claude Desktop etc): visit https://easy-predict.com for',
+        'instructions on configuring automatic payments.',
+      ].join('\n'),
+    });
+  }
+
+  if (method === 'tools/list') {
+    return mcpResult(id, { tools: MCP_TOOLS });
+  }
+
+  if (method === 'tools/call') {
+    const toolName = params?.name as string;
+    const args = ((params?.arguments ?? {}) as Record<string, unknown>);
+
+    if (toolName !== 'predict_timeseries' && toolName !== 'detect_anomalies') {
+      return mcpRpcError(id, -32602, `Unknown tool: ${toolName}`);
+    }
+
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const { success } = await env.RATE_LIMITER.limit({ key: ip });
+    if (!success) {
+      return mcpResult(id, {
+        content: [{ type: 'text', text: JSON.stringify({ error: 'Too many requests', retryAfter: 60 }) }],
+        isError: true,
+      });
+    }
+
+    const endpoint = toolName === 'predict_timeseries' ? '/timeseries' : '/anomaly-detection';
+    const paymentSignature = args.payment_signature as string | undefined;
+
+    if (!paymentSignature) {
+      const desc = toolName === 'predict_timeseries'
+        ? 'Predict the next value in a numeric series via log1p linear extrapolation.'
+        : 'Detect anomalies in a numeric series using z-score method.';
+      return mcpResult(id, {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            status: 'payment_required',
+            message: 'Sign the x402 challenge and call again with payment_signature.',
+            x402_challenge: {
+              x402Version: 2,
+              error: 'Payment Required',
+              resource: { url: `${baseUrl}${endpoint}`, description: desc, mimeType: 'application/json' },
+              accepts: [paymentRequirements()],
+            },
+            next_steps: {
+              programmatic: 'Build a PaymentPayload from accepts[0], sign with your EVM wallet (EIP-191), base64-encode the signed payload JSON, and pass as payment_signature.',
+              end_users: 'Visit https://easy-predict.com for instructions on configuring automatic payments in Claude Desktop and other MCP clients.',
+            },
+          }, null, 2),
+        }],
+        isError: true,
+      });
+    }
+
+    const apiBody: Record<string, unknown> = { series: args.series };
+    if (args.context !== undefined) apiBody.context = args.context;
+    if (toolName === 'detect_anomalies' && args.threshold !== undefined) apiBody.threshold = args.threshold;
+
+    const syntheticReq = new Request(`${baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'PAYMENT-SIGNATURE': paymentSignature,
+        'CF-Connecting-IP': ip,
+      },
+      body: JSON.stringify(apiBody),
+    });
+
+    const apiResp = toolName === 'predict_timeseries'
+      ? await handleTimeseriesPost(syntheticReq, baseUrl, ctx)
+      : await handleAnomalyDetectionPost(syntheticReq, baseUrl, ctx);
+
+    const result = await apiResp.json() as unknown;
+    return mcpResult(id, {
+      content: [{ type: 'text', text: JSON.stringify(result) }],
+      isError: !apiResp.ok,
+    });
+  }
+
+  return mcpRpcError(id, -32601, `Method not found: ${method}`);
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -384,6 +550,19 @@ export default {
         });
       }
       return handleAnomalyDetectionPost(request, baseUrl, ctx);
+    }
+
+    if (pathname === '/mcp') {
+      if (request.method === 'POST') return handleMCPPost(request, baseUrl, env, ctx);
+      return new Response(JSON.stringify({
+        name: 'easy-predict',
+        description: 'MCP server for time series prediction and anomaly detection.',
+        protocol: 'MCP Streamable HTTP (2024-11-05)',
+        endpoint: `${baseUrl}/mcp`,
+        tools: ['predict_timeseries', 'detect_anomalies'],
+        pricing: '$0.01 USDC per call on Base via x402',
+        docs: 'https://easy-predict.com',
+      }), { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
     }
 
     if (pathname === '/.well-known/x402') return handleWellKnownX402(baseUrl);

@@ -5,7 +5,11 @@
   "iconUrl": "https://easy-predict.com/favicon.svg",
   "homepage": "https://easy-predict.com",
   "license": "MIT",
-  "isDeployed": false,
+  "isDeployed": true,
+  "remote": {
+    "transport": "streamable-http",
+    "url": "https://easy-predict.com/mcp"
+  },
   "tools": [
     {
       "name": "predict_timeseries",
