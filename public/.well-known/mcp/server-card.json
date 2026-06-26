@@ -1,0 +1,80 @@
+{
+  "qualifiedName": "easy-predict-mcp",
+  "displayName": "easy-predict",
+  "description": "Time series prediction and anomaly detection. Each call costs $0.01 USDC on Base, paid automatically via x402 micropayments. Your private key signs payments locally and is never sent to any server.",
+  "iconUrl": "https://easy-predict.com/favicon.svg",
+  "homepage": "https://easy-predict.com",
+  "license": "MIT",
+  "isDeployed": false,
+  "tools": [
+    {
+      "name": "predict_timeseries",
+      "description": "Predict the next value in a numeric time series. Uses automatic model selection (linear, log1p-linear, last-delta, mean) via holdout evaluation. Costs $0.01 USDC on Base via x402.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["series"],
+        "properties": {
+          "series": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 1000,
+            "description": "Numbers ordered oldest to newest."
+          },
+          "context": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "What the series represents, e.g. 'monthly revenue USD'."
+          }
+        }
+      }
+    },
+    {
+      "name": "detect_anomalies",
+      "description": "Detect anomalies in a numeric series using z-score analysis. Returns flagged points with their z-scores. Costs $0.01 USDC on Base via x402.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["series"],
+        "properties": {
+          "series": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 3,
+            "maxItems": 1000,
+            "description": "Numbers to analyze."
+          },
+          "threshold": {
+            "type": "number",
+            "default": 2.0,
+            "exclusiveMinimum": 0,
+            "maximum": 10,
+            "description": "Z-score cutoff. Default 2.0 — lower values flag more points."
+          },
+          "context": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "What the series represents, e.g. 'cpu usage %'."
+          }
+        }
+      }
+    }
+  ],
+  "connections": [
+    {
+      "type": "stdio",
+      "configSchema": {
+        "type": "object",
+        "required": ["WALLET_PRIVATE_KEY"],
+        "properties": {
+          "WALLET_PRIVATE_KEY": {
+            "type": "string",
+            "description": "EVM wallet private key (0x...) for signing x402 micropayments on Base. Signs locally — never sent to any server."
+          }
+        }
+      },
+      "exampleConfig": {
+        "WALLET_PRIVATE_KEY": "0x..."
+      }
+    }
+  ]
+}
