@@ -228,7 +228,7 @@ async function handleTimeseriesPost(
   ctx: ExecutionContext,
 ): Promise<Response> {
   const resourceUrl = `${baseUrl}/timeseries`;
-  const resourceDesc = 'Predict the next value in a numeric series via log1p linear extrapolation.';
+  const resourceDesc = 'Predict the next value in a numeric series. Automatically selects the best-fit model (linear, log1p-linear, last-delta, or mean) via holdout validation.';
 
   const paymentHeader = getPaymentHeader(request);
   if (!paymentHeader) return paymentRequired(resourceUrl, 'Payment Required', resourceDesc);
@@ -315,7 +315,7 @@ function handleWellKnownX402(baseUrl: string): Response {
       {
         resource: {
           url: `${baseUrl}/timeseries`,
-          description: 'Predict the next value in a numeric series via log1p linear extrapolation.',
+          description: 'Predict the next value in a numeric series. Automatically selects the best-fit model (linear, log1p-linear, last-delta, or mean) via holdout validation.',
           mimeType: 'application/json',
         },
         method: 'POST',
@@ -466,7 +466,7 @@ async function handleMCPPost(
 
     if (!paymentSignature) {
       const desc = toolName === 'predict_timeseries'
-        ? 'Predict the next value in a numeric series via log1p linear extrapolation.'
+        ? 'Predict the next value in a numeric series. Automatically selects the best-fit model (linear, log1p-linear, last-delta, or mean) via holdout validation.'
         : 'Detect anomalies in a numeric series using z-score method.';
       return mcpResult(id, {
         content: [{
@@ -574,7 +574,7 @@ export default {
       const accept = request.headers.get('Accept') ?? '';
       if (accept.includes('application/json')) {
         const desc = pathname === '/timeseries'
-          ? 'Predict the next value in a numeric series via log1p linear extrapolation.'
+          ? 'Predict the next value in a numeric series. Automatically selects the best-fit model (linear, log1p-linear, last-delta, or mean) via holdout validation.'
           : 'Detect anomalies in a numeric series using z-score method.';
         return paymentRequired(`${baseUrl}${pathname}`, 'Payment Required', desc);
       }

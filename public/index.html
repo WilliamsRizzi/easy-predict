@@ -347,8 +347,9 @@
 
       <h3>Predict next value · POST /timeseries</h3>
       <pre><span class="token-method">POST</span> <span class="token-url">https://easy-predict.com/timeseries</span>
-<span class="token-header">Content-Type:</span> <span class="token-string">application/json</span>
-<span class="token-header">X-PAYMENT:</span>      <span class="token-string">&lt;x402-signed-payment-payload&gt;</span>
+<span class="token-header">Content-Type:</span>        <span class="token-string">application/json</span>
+<span class="token-header">PAYMENT-SIGNATURE:</span>   <span class="token-string">&lt;x402-signed-payment-payload&gt;</span>
+<span class="token-comment">// X-PAYMENT: &lt;...&gt; also accepted (legacy alias)</span>
 
 <span class="token-key">{</span>
   <span class="token-key">"series":</span> <span class="token-string">[1.0, 2.3, 4.1, 6.8, 9.2]</span>
@@ -367,8 +368,9 @@
       <br>
       <h3>Detect anomalies · POST /anomaly-detection</h3>
       <pre><span class="token-method">POST</span> <span class="token-url">https://easy-predict.com/anomaly-detection</span>
-<span class="token-header">Content-Type:</span> <span class="token-string">application/json</span>
-<span class="token-header">X-PAYMENT:</span>      <span class="token-string">&lt;x402-signed-payment-payload&gt;</span>
+<span class="token-header">Content-Type:</span>        <span class="token-string">application/json</span>
+<span class="token-header">PAYMENT-SIGNATURE:</span>   <span class="token-string">&lt;x402-signed-payment-payload&gt;</span>
+<span class="token-comment">// X-PAYMENT: &lt;...&gt; also accepted (legacy alias)</span>
 
 <span class="token-key">{</span>
   <span class="token-key">"series":</span>    <span class="token-string">[1.0, 2.3, 4.1, 6.8, 99.0]</span>,
@@ -416,8 +418,9 @@
             <code>last-delta</code>, or <code>mean</code> — by holding out the last point as a
             validation target, then retrains the winner on the full series. Response includes
             <code>holdout_errors</code> for all candidates so you can see why the model was chosen.
-            Calls without a valid <code>X-PAYMENT</code> header receive HTTP&nbsp;402
+            Calls without a valid <code>PAYMENT-SIGNATURE</code> header receive HTTP&nbsp;402
             with the full payment requirements in the response body.
+            (<code>X-PAYMENT</code> is accepted as a legacy alias.)
           </p>
         </div>
       </div>
@@ -473,7 +476,7 @@
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <div class="step-text"><strong>Your agent resends with X-PAYMENT.</strong> Include the base64-encoded signed payload in the <code>X-PAYMENT</code> header. The facilitator verifies and settles on-chain.</div>
+          <div class="step-text"><strong>Your agent resends with PAYMENT-SIGNATURE.</strong> Include the base64-encoded signed payload in the <code>PAYMENT-SIGNATURE</code> header (<code>X-PAYMENT</code> also accepted as a legacy alias). The facilitator verifies and settles on-chain.</div>
         </div>
         <div class="step">
           <div class="step-num">4</div>
